@@ -28,7 +28,7 @@ command = pip install -U workdir && run_your_tests_or_whatever
 
 ## TODO
 
- * [ ] Recursive directory watching
+ * [x] Recursive directory watching
  * [ ] Multiple files on the `match` key
- * [ ] Match files with some kind of regex
+ * [x] Match files using `path/filepath.Glob()`
  * [ ] Override the default command (`/bin/sh -c <command>`) that starts the actual command by configuration
