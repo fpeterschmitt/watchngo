@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"sync"
 	"time"
 
@@ -19,9 +20,11 @@ type Watcher struct {
 	Name      string
 	Command   string
 	Match     string
+	Filter    string
 	FSWatcher *fsnotify.Watcher
 	executing bool
 	eLock     sync.RWMutex
+	filter    *regexp.Regexp
 }
 
 // Find add files to the watcher. Currently only one file with it's exact
@@ -44,6 +47,14 @@ func (w *Watcher) Find() error {
 		matches = append(matches, w.Match)
 	} else {
 		return fmt.Errorf("stat: %s: %v", w.Match, err)
+	}
+
+	if w.Filter != "" {
+		rfilter, err := regexp.Compile(w.Filter)
+		if err != nil {
+			return fmt.Errorf("filter: %s: %v", w.Filter, rfilter)
+		}
+		w.filter = rfilter
 	}
 
 	for _, match := range matches {
@@ -112,6 +123,10 @@ func (w *Watcher) Work() error {
 				log.Printf("event: %v", event)
 				log.Printf("command: %v", w.Command)
 
+				if w.filter != nil && !w.filter.MatchString(event.Name) {
+					break
+				}
+
 				matchstat, err := os.Stat(event.Name)
 				if err != nil {
 					log.Printf("worker: %s: %v", event.Name, err)
@@ -149,6 +164,8 @@ func (w *Watcher) Work() error {
 				} else if isDir {
 					go w.exec(w.Command)
 				}
+
+				time.Sleep(time.Millisecond * 10)
 
 			case err := <-w.FSWatcher.Errors:
 				log.Printf("error: %v", err)

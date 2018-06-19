@@ -26,24 +26,33 @@ func FromPath(path string) ([]*watcher.Watcher, error) {
 		wName := section.Name()
 
 		// match
-		kMatch, err := section.GetKey("match")
+		iMatch, err := section.GetKey("match")
 		if err != nil {
 			return nil, fmt.Errorf("conf: match: %v", err)
 		}
-		wMatch := kMatch.String()
+		wMatch := iMatch.String()
 
 		// command
-		kCommand, err := section.GetKey("command")
+		iCommand, err := section.GetKey("command")
 		if err != nil {
 			return nil, fmt.Errorf("conf: command: %v", err)
 		}
-		wCommand := kCommand.String()
+		wCommand := iCommand.String()
+
+		// filter
+		iFilter, err := section.GetKey("filter")
+		wFilter := ""
+		if err == nil {
+			wFilter = iFilter.String()
+		}
 
 		watcher := watcher.Watcher{
 			Name:    wName,
 			Command: wCommand,
 			Match:   wMatch,
+			Filter:  wFilter,
 		}
+		fmt.Println(watcher.Filter)
 		watchers = append(watchers, &watcher)
 	}
 

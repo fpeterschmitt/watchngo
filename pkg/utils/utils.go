@@ -25,12 +25,13 @@ func (w *walkRec) walkRecursive(file string, info os.FileInfo, err error) error 
 // FindRecursive looks for directories in the given path, that MUST be
 // a directory.
 func FindRecursive(path string, matches []string) ([]string, error) {
+	var err error
+
 	wr := walkRec{
 		matches: matches,
 	}
 
-	err := filepath.Walk(path, wr.walkRecursive)
-	if err != nil {
+	if err = filepath.Walk(path, wr.walkRecursive); err != nil {
 		return matches, fmt.Errorf("walk: %s: %v", path, err)
 	}
 
