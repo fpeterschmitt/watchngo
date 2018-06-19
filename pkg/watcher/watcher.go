@@ -46,7 +46,6 @@ func (w *Watcher) Find() error {
 		return fmt.Errorf("stat: %s: %v", w.Match, err)
 	}
 
-	fmt.Println(matches)
 	for _, match := range matches {
 		log.Printf("add match: %s", match)
 		err := w.FSWatcher.Add(match)
