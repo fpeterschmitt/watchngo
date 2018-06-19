@@ -1,5 +1,7 @@
 # Watch'n'Go
 
+**WORK IN PROGRESS**
+
 ## Install
 
 ```
@@ -26,6 +28,7 @@ command = pip install -U workdir && run_your_tests_or_whatever
 
 ## TODO
 
+ * [ ] Recursive directory watching
  * [ ] Multiple files on the `match` key
  * [ ] Match files with some kind of regex
  * [ ] Override the default command (`/bin/sh -c <command>`) that starts the actual command by configuration
