@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -129,11 +130,12 @@ func (w *Watcher) exec(command string) {
 		wp.Close()
 	}()
 
-	for {
-		b := make([]byte, 1024)
-		n, err := rp.Read(b)
+	reader := bufio.NewReader(rp)
 
-		if n > 0 {
+	for {
+		b, err := reader.ReadBytes('\n')
+
+		if len(b) > 0 {
 			fmt.Printf("%s", string(b))
 		}
 
@@ -142,8 +144,10 @@ func (w *Watcher) exec(command string) {
 		}
 	}
 
-	b, _ := ioutil.ReadAll(rp)
-	fmt.Printf("%s", string(b))
+	if reader.Buffered() > 0 {
+		b, _ := ioutil.ReadAll(reader)
+		fmt.Printf("%s", string(b))
+	}
 
 	log.Printf("finished command for watcher %s", w.Name)
 }
@@ -163,21 +167,25 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		return
 	}
 
-	matchstat, err := os.Stat(event.Name)
-	if err != nil {
-		log.Printf("worker: %s: %v", event.Name, err)
+	if event.Name == "" {
 		return
 	}
-
-	// just to be very explicit
-	isFile := !matchstat.IsDir()
-	isDir := matchstat.IsDir()
 
 	isWrite := fsnotify.Write&event.Op == fsnotify.Write
 	isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
 	isChmod := fsnotify.Chmod&event.Op == fsnotify.Chmod
 	//isCreate := fsnotify.Create&event.Op == fsnotify.Create
 	isRename := fsnotify.Rename&event.Op == fsnotify.Rename
+
+	eventFileStat, err := os.Stat(event.Name)
+	if err != nil && !isRemove && !isRename {
+		log.Printf("worker: %s: %v", event.Name, err)
+		return
+	}
+
+	// just to be very explicit
+	isFile := !eventFileStat.IsDir()
+	isDir := eventFileStat.IsDir()
 
 	if w.getExecuting() {
 		if w.Debug {
@@ -190,7 +198,9 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		go w.exec(command)
 
 	} else if (isRemove || isRename) && isFile {
-		// FIXIT: ...
+		w.FSWatcher.Remove(event.Name)
+
+		// FIXIT: properly wait for the file to reappear.
 		time.Sleep(time.Millisecond * 100)
 
 		_, err := os.Stat(event.Name)
@@ -198,7 +208,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 			w.FSWatcher.Add(event.Name)
 			go w.exec(command)
 		} else {
-			log.Fatalf("cannot re-add file: %s", event.Name)
+			log.Printf("cannot re-add file: %s", event.Name)
 		}
 
 	} else if isDir {
@@ -206,7 +216,6 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	}
 
 	time.Sleep(time.Millisecond * 10)
-
 }
 
 // Work fires the watcher and run commands when an event is received.
