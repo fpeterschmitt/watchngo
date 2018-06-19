@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 
-	"Leryan/watchngo/pkg/conf"
+	"github.com/Leryan/watchngo/pkg/conf"
 
 	"github.com/fsnotify/fsnotify"
 )

@@ -1,4 +1,4 @@
-package: Leryan/watchngo
+package: github.com/Leryan/watchngo
 import:
 - package: github.com/fsnotify/fsnotify
   version: ~1.4.7

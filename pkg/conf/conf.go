@@ -3,7 +3,7 @@ package conf
 import (
 	"fmt"
 
-	"Leryan/watchngo/pkg/watcher"
+	"github.com/Leryan/watchngo/pkg/watcher"
 
 	"github.com/go-ini/ini"
 )
