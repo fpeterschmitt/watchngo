@@ -1,5 +1,5 @@
-hash: cc0c00e3c96b57bfd2aa923e38344ff2afe535eec57eb9df46f92e165208785c
-updated: 2018-06-19T02:28:14.608141875+02:00
+hash: bbede29d1700c2c15ed3965a097f31a470f43c71cbfc092a5cd0b32f20707e22
+updated: 2018-06-19T10:03:37.797196848+02:00
 imports:
 - name: github.com/fsnotify/fsnotify
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Leryan/watchngo/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -26,9 +27,32 @@ type Watcher struct {
 // Find add files to the watcher. Currently only one file with it's exact
 // path (may be relative) is supported.
 func (w *Watcher) Find() error {
-	err := w.FSWatcher.Add(w.Match)
-	if err != nil {
-		return fmt.Errorf("on match: %s: %v", w.Match, err)
+	matchstat, err := os.Stat(w.Match)
+	matches := make([]string, 0)
+
+	if err == nil && matchstat.IsDir() {
+		matches, err = utils.FindRecursive(w.Match, matches)
+		if err != nil {
+			return fmt.Errorf("find: %v", err)
+		}
+	} else if err != nil {
+		matches, err = utils.FindGlob(w.Match, matches)
+		if err != nil {
+			return fmt.Errorf("find: %v", err)
+		}
+	} else if err == nil && !matchstat.IsDir() {
+		matches = append(matches, w.Match)
+	} else {
+		return fmt.Errorf("stat: %s: %v", w.Match, err)
+	}
+
+	fmt.Println(matches)
+	for _, match := range matches {
+		log.Printf("add match: %s", match)
+		err := w.FSWatcher.Add(match)
+		if err != nil {
+			return fmt.Errorf("on match: %s: %v", match, err)
+		}
 	}
 	return nil
 }
@@ -40,8 +64,8 @@ func (w *Watcher) setExecuting(executing bool) {
 }
 
 func (w *Watcher) getExecuting() bool {
-	w.eLock.RLock()
-	defer w.eLock.RUnlock()
+	w.eLock.Lock()
+	defer w.eLock.Unlock()
 	return w.executing
 }
 
@@ -79,14 +103,6 @@ func (w *Watcher) exec(command string) {
 // Work fires the watcher and run commands when an event is received.
 func (w *Watcher) Work() error {
 	log.Printf("running watcher %v", w.Name)
-	matchstat, err := os.Stat(w.Match)
-	if err != nil {
-		return fmt.Errorf("worker: %s: %v", w.Name, err)
-	}
-
-	// just to be very explicit
-	isFile := !matchstat.IsDir()
-	isDir := matchstat.IsDir()
 
 	w.setExecuting(false)
 
@@ -96,6 +112,16 @@ func (w *Watcher) Work() error {
 			case event := <-w.FSWatcher.Events:
 				log.Printf("event: %v", event)
 				log.Printf("command: %v", w.Command)
+
+				matchstat, err := os.Stat(event.Name)
+				if err != nil {
+					log.Printf("worker: %s: %v", event.Name, err)
+					break
+				}
+
+				// just to be very explicit
+				isFile := !matchstat.IsDir()
+				isDir := matchstat.IsDir()
 
 				isWrite := fsnotify.Write&event.Op == fsnotify.Write
 				isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
@@ -109,7 +135,7 @@ func (w *Watcher) Work() error {
 				}
 
 				if (isWrite || isChmod) && isFile {
-					w.exec(w.Command)
+					go w.exec(w.Command)
 
 				} else if (isRemove || isRename) && isFile {
 					// FIXIT: ...
@@ -117,12 +143,12 @@ func (w *Watcher) Work() error {
 
 					_, err := os.Stat(event.Name)
 					if err == nil {
-						w.exec(w.Command)
+						go w.exec(w.Command)
 						w.FSWatcher.Add(event.Name)
 					}
 
 				} else if isDir {
-					w.exec(w.Command)
+					go w.exec(w.Command)
 				}
 
 			case err := <-w.FSWatcher.Errors:
