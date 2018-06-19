@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -153,9 +154,11 @@ func (w *Watcher) exec(command string) {
 }
 
 func (w *Watcher) handleFSEvent(event fsnotify.Event) {
+	eventFile := path.Clean(event.Name)
+
 	command := strings.Replace(w.Command, "%match", w.Match, -1)
 	command = strings.Replace(command, "%filter", w.Filter, -1)
-	command = strings.Replace(command, "%event.file", event.Name, -1)
+	command = strings.Replace(command, "%event.file", eventFile, -1)
 	command = strings.Replace(command, "%event.op", event.Op.String(), -1)
 
 	if w.Debug {
@@ -163,11 +166,11 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		log.Printf("command: %v", command)
 	}
 
-	if w.filter != nil && !w.filter.MatchString(event.Name) {
+	if w.filter != nil && !w.filter.MatchString(eventFile) {
 		return
 	}
 
-	if event.Name == "" {
+	if eventFile == "" {
 		return
 	}
 
@@ -177,9 +180,9 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	//isCreate := fsnotify.Create&event.Op == fsnotify.Create
 	isRename := fsnotify.Rename&event.Op == fsnotify.Rename
 
-	eventFileStat, err := os.Stat(event.Name)
+	eventFileStat, err := os.Stat(eventFile)
 	if err != nil && !isRemove && !isRename {
-		log.Printf("worker: %s: %v", event.Name, err)
+		log.Printf("worker: %s: %v", eventFile, err)
 		return
 	}
 
@@ -198,17 +201,17 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		go w.exec(command)
 
 	} else if (isRemove || isRename) && isFile {
-		w.FSWatcher.Remove(event.Name)
+		w.FSWatcher.Remove(eventFile)
 
 		// FIXIT: properly wait for the file to reappear.
 		time.Sleep(time.Millisecond * 100)
 
-		_, err := os.Stat(event.Name)
+		_, err := os.Stat(eventFile)
 		if err == nil {
-			w.FSWatcher.Add(event.Name)
+			w.FSWatcher.Add(eventFile)
 			go w.exec(command)
 		} else {
-			log.Printf("cannot re-add file: %s", event.Name)
+			log.Printf("cannot re-add file: %s", eventFile)
 		}
 
 	} else if isDir {
