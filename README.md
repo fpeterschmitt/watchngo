@@ -9,6 +9,7 @@
 ## Install
 
 ```
+go get -u github.com/Leryan/watchngo/cmd/watchngo
 go install github.com/Leryan/watchngo/cmd/watchngo
 ```
 
