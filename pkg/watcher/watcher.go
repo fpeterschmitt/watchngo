@@ -39,22 +39,42 @@ func (w *Watcher) Find() error {
 		if err != nil {
 			return fmt.Errorf("find: %v", err)
 		}
-	} else if err != nil {
-		matches, err = utils.FindGlob(w.Match, matches)
-		if err != nil {
-			return fmt.Errorf("find: %v", err)
+
+		if w.Debug {
+			log.Printf("watcher %s found recursive directories", w.Name)
 		}
+
 	} else if err == nil && !matchstat.IsDir() {
 		matches = append(matches, w.Match)
+
+		if w.Debug {
+			log.Printf("watcher %s use single file", w.Name)
+		}
+
+	} else if err != nil {
+		matches, err = utils.FindGlob(w.Match, matches)
+
+		if err != nil {
+			return fmt.Errorf("glob: %v", err)
+		} else if len(matches) == 0 {
+			return fmt.Errorf("empty glob: %s", w.Match)
+		}
+
+		if w.Debug {
+			log.Printf("watcher %s use glob match", w.Name)
+		}
+
 	} else {
-		return fmt.Errorf("stat: %s: %v", w.Match, err)
+		return fmt.Errorf("bad conf: %s: %v", w.Match, err)
 	}
 
 	if w.Filter != "" {
 		rfilter, err := regexp.Compile(w.Filter)
+
 		if err != nil {
 			return fmt.Errorf("filter: %s: %v", w.Filter, rfilter)
 		}
+
 		w.filter = rfilter
 	}
 

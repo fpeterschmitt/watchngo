@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/Leryan/watchngo/pkg/watcher"
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/go-ini/ini"
 )
 
-// FromPath returns configuration from file at path
-func FromPath(path string) ([]*watcher.Watcher, error) {
+// WatchersFromPath returns configuration from file at path
+func WatchersFromPath(path string) ([]*watcher.Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, fmt.Errorf("conf: from path: %s: %v", path, err)
@@ -38,6 +39,13 @@ func FromPath(path string) ([]*watcher.Watcher, error) {
 			Name:  section.Name(),
 			Debug: debug,
 		}
+
+		fswatcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, fmt.Errorf("fsnotify: %v", err)
+		}
+
+		watcher.FSWatcher = fswatcher
 
 		if section.HasKey("match") {
 			watcher.Match = section.Key("match").String()

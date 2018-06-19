@@ -6,38 +6,38 @@ import (
 	"github.com/Leryan/watchngo/pkg/conf"
 
 	"flag"
-
-	"github.com/fsnotify/fsnotify"
 )
 
 func main() {
 	flagCfg := flag.String("conf", "watchngo.ini", "configuration file path")
 	flag.Parse()
 
-	watchers, err := conf.FromPath(*flagCfg)
+	watchers, err := conf.WatchersFromPath(*flagCfg)
 
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		log.Fatalf("error: WatchersFromPath: %v", err)
 	}
 
 	forever := make(chan bool, 1)
+	working := 0
 
 	for _, watcher := range watchers {
-		fswatcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			log.Fatalf("error: %v", err)
-		}
-
-		watcher.FSWatcher = fswatcher
-
 		if err = watcher.Find(); err != nil {
-			log.Fatalf("error: %v", err)
+			log.Printf("error: watcher.Find: %s: %v", watcher.Name, err)
+			continue
 		}
 
 		if err = watcher.Work(); err != nil {
-			log.Fatalf("error: %v", err)
+			log.Printf("error: watcher.Work: %s: %v", watcher.Name, err)
+			continue
 		}
+
+		working++
 	}
 
-	<-forever
+	if working > 0 {
+		<-forever
+	} else {
+		log.Fatalf("error: no watcher working")
+	}
 }
