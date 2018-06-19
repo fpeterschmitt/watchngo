@@ -22,6 +22,8 @@ func (w *walkRec) walkRecursive(file string, info os.FileInfo, err error) error 
 	return nil
 }
 
+// FindRecursive looks for directories in the given path, that MUST be
+// a directory.
 func FindRecursive(path string, matches []string) ([]string, error) {
 	wr := walkRec{
 		matches: matches,
@@ -35,6 +37,8 @@ func FindRecursive(path string, matches []string) ([]string, error) {
 	return wr.matches, nil
 }
 
+// FindGlob uses the given pattern that must be
+// compatible with path/filepath.Glob()
 func FindGlob(pattern string, matches []string) ([]string, error) {
 	nMatches, err := filepath.Glob(pattern)
 
