@@ -52,7 +52,7 @@ func FromPath(path string) ([]*watcher.Watcher, error) {
 			Match:   wMatch,
 			Filter:  wFilter,
 		}
-		fmt.Println(watcher.Filter)
+
 		watchers = append(watchers, &watcher)
 	}
 
