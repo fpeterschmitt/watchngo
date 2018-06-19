@@ -13,6 +13,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// Watcher ...
 type Watcher struct {
 	Name      string
 	Command   string
@@ -22,6 +23,8 @@ type Watcher struct {
 	eLock     sync.RWMutex
 }
 
+// Find add files to the watcher. Currently only one file with it's exact
+// path (may be relative) is supported.
 func (w *Watcher) Find() error {
 	err := w.FSWatcher.Add(w.Match)
 	if err != nil {
@@ -42,19 +45,19 @@ func (w *Watcher) getExecuting() bool {
 	return w.executing
 }
 
-func (W *Watcher) exec(command string) {
-	W.setExecuting(true)
+func (w *Watcher) exec(command string) {
+	w.setExecuting(true)
 
-	r, w := io.Pipe()
+	rp, wp := io.Pipe()
 	cmd := exec.Command("/bin/sh", "-c", command)
-	cmd.Stdout = w
-	cmd.Stderr = w
+	cmd.Stdout = wp
+	cmd.Stderr = wp
 
 	go func() {
 		if err := cmd.Run(); err != nil {
 			log.Println(err)
 		}
-		w.Close()
+		wp.Close()
 	}()
 
 	for {
@@ -64,21 +67,26 @@ func (W *Watcher) exec(command string) {
 			}
 		}
 		b := make([]byte, 1024)
-		r.Read(b)
+		rp.Read(b)
 		fmt.Printf("%s", string(b))
 	}
-	b, _ := ioutil.ReadAll(r)
+	b, _ := ioutil.ReadAll(rp)
 	fmt.Printf("%s", string(b))
 
-	W.setExecuting(false)
+	w.setExecuting(false)
 }
 
-func (w *Watcher) Work() {
+// Work fires the watcher and run commands when an event is received.
+func (w *Watcher) Work() error {
 	log.Printf("running watcher %v", w.Name)
 	matchstat, err := os.Stat(w.Match)
 	if err != nil {
-		log.Fatalf("worker: %s: %v", w.Name, err)
+		return fmt.Errorf("worker: %s: %v", w.Name, err)
 	}
+
+	// just to be very explicit
+	isFile := !matchstat.IsDir()
+	isDir := matchstat.IsDir()
 
 	w.setExecuting(false)
 
@@ -92,24 +100,28 @@ func (w *Watcher) Work() {
 				isWrite := fsnotify.Write&event.Op == fsnotify.Write
 				isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
 				isChmod := fsnotify.Chmod&event.Op == fsnotify.Chmod
-				isCreate := fsnotify.Create&event.Op == fsnotify.Create
+				//isCreate := fsnotify.Create&event.Op == fsnotify.Create
+				isRename := fsnotify.Rename&event.Op == fsnotify.Rename
 
 				if w.getExecuting() {
 					log.Printf("already running, ignoring")
 					break
 				}
 
-				if isWrite || isChmod {
+				if (isWrite || isChmod) && isFile {
 					w.exec(w.Command)
 
-				} else if isRemove {
+				} else if (isRemove || isRename) && isFile {
+					// FIXIT: ...
 					time.Sleep(time.Millisecond * 10)
+
 					_, err := os.Stat(event.Name)
 					if err == nil {
 						w.exec(w.Command)
 						w.FSWatcher.Add(event.Name)
 					}
-				} else if isCreate && matchstat.IsDir() {
+
+				} else if isDir {
 					w.exec(w.Command)
 				}
 
@@ -118,4 +130,6 @@ func (w *Watcher) Work() {
 			}
 		}
 	}()
+
+	return nil
 }

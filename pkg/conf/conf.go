@@ -8,13 +8,8 @@ import (
 	"github.com/go-ini/ini"
 )
 
-type Conf struct {
-	// watcher -> command
-	m map[string]watcher.Watcher
-}
-
 // FromPath returns configuration from file at path
-func FromPath(path string) ([]watcher.Watcher, error) {
+func FromPath(path string) ([]*watcher.Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, fmt.Errorf("conf: from path: %s: %v", path, err)
@@ -25,7 +20,7 @@ func FromPath(path string) ([]watcher.Watcher, error) {
 		return nil, fmt.Errorf("conf: no configuration")
 	}
 
-	watchers := make([]watcher.Watcher, 0)
+	watchers := make([]*watcher.Watcher, 0)
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
 		wName := section.Name()
@@ -49,7 +44,7 @@ func FromPath(path string) ([]watcher.Watcher, error) {
 			Command: wCommand,
 			Match:   wMatch,
 		}
-		watchers = append(watchers, watcher)
+		watchers = append(watchers, &watcher)
 	}
 
 	return watchers, nil
