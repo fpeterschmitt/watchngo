@@ -6,8 +6,6 @@
  * Watch files recursively in a directory, with an optional pattern
  * Run a command on modifications through `/bin/sh -c <command>`
 
-See `watchngo.sample.ini` file for more details on configuration.
-
 ## Install
 
 ```
@@ -22,15 +20,7 @@ watchngo [-conf watchngo.ini]
 
 ## Configuration
 
-```ini
-[my cool watcher]
-match = only_one_file.py
-command = python only_one_file.py
-
-[my other watcher]
-match = workdir
-command = pip install -U workdir && run_your_tests_or_whatever
-```
+See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
 
 ## TODO
 

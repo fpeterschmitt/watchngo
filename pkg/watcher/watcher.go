@@ -22,6 +22,7 @@ type Watcher struct {
 	Match     string
 	Filter    string
 	FSWatcher *fsnotify.Watcher
+	Debug     bool
 	executing bool
 	eLock     sync.RWMutex
 	filter    *regexp.Regexp
@@ -58,7 +59,9 @@ func (w *Watcher) Find() error {
 	}
 
 	for _, match := range matches {
-		log.Printf("add match: %s", match)
+		if w.Debug {
+			log.Printf("add match: %s", match)
+		}
 		err := w.FSWatcher.Add(match)
 		if err != nil {
 			return fmt.Errorf("on match: %s: %v", match, err)
@@ -81,11 +84,14 @@ func (w *Watcher) getExecuting() bool {
 
 func (w *Watcher) exec(command string) {
 	w.setExecuting(true)
+	defer w.setExecuting(false)
 
 	rp, wp := io.Pipe()
 	cmd := exec.Command("/bin/sh", "-c", command)
 	cmd.Stdout = wp
 	cmd.Stderr = wp
+
+	log.Printf("running command for watcher %s", w.Name)
 
 	go func() {
 		if err := cmd.Run(); err != nil {
@@ -95,33 +101,36 @@ func (w *Watcher) exec(command string) {
 	}()
 
 	for {
-		if cmd.ProcessState != nil {
-			if cmd.ProcessState.Exited() {
-				break
-			}
+		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+			break
 		}
+
 		b := make([]byte, 1024)
-		rp.Read(b)
-		fmt.Printf("%s", string(b))
+		n, _ := rp.Read(b)
+
+		if n > 0 {
+			fmt.Printf("%s", string(b))
+		}
 	}
+
 	b, _ := ioutil.ReadAll(rp)
 	fmt.Printf("%s", string(b))
 
-	w.setExecuting(false)
+	log.Printf("finished command for watcher %s", w.Name)
 }
 
 // Work fires the watcher and run commands when an event is received.
 func (w *Watcher) Work() error {
-	log.Printf("running watcher %v", w.Name)
-
 	w.setExecuting(false)
 
 	go func() {
 		for {
 			select {
 			case event := <-w.FSWatcher.Events:
-				log.Printf("event: %v", event)
-				log.Printf("command: %v", w.Command)
+				if w.Debug {
+					log.Printf("event: %v", event)
+					log.Printf("command: %v", w.Command)
+				}
 
 				if w.filter != nil && !w.filter.MatchString(event.Name) {
 					break
@@ -144,7 +153,9 @@ func (w *Watcher) Work() error {
 				isRename := fsnotify.Rename&event.Op == fsnotify.Rename
 
 				if w.getExecuting() {
-					log.Printf("already running, ignoring")
+					if w.Debug {
+						log.Printf("already running, ignoring")
+					}
 					break
 				}
 
@@ -172,6 +183,8 @@ func (w *Watcher) Work() error {
 			}
 		}
 	}()
+
+	log.Printf("running watcher %v", w.Name)
 
 	return nil
 }
