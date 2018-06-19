@@ -26,7 +26,6 @@ See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
 ## TODO
 
  * [x] Recursive directory watching
- * [ ] Multiple files on the `match` key
  * [x] Match files using `path/filepath.Glob()`
  * [ ] Override the default command (`/bin/sh -c <command>`) that starts the actual command by configuration
- * [ ] Command interpolation: `%match`, `%filter`, `%event.file`, `%event.op`
+ * [x] Command interpolation: `%match`, `%filter`, `%event.file`, `%event.op`

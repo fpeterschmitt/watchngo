@@ -36,8 +36,9 @@ func WatchersFromPath(path string) ([]*watcher.Watcher, error) {
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
 		watcher := watcher.Watcher{
-			Name:  section.Name(),
-			Debug: debug,
+			Name:      section.Name(),
+			Debug:     debug,
+			WithShell: true,
 		}
 
 		fswatcher, err := fsnotify.NewWatcher()

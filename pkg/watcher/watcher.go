@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,8 @@ type Watcher struct {
 	Match     string
 	Filter    string
 	FSWatcher *fsnotify.Watcher
+	Shell     string
+	WithShell bool
 	Debug     bool
 	executing bool
 	eLock     sync.RWMutex
@@ -107,7 +110,13 @@ func (w *Watcher) exec(command string) {
 	defer w.setExecuting(false)
 
 	rp, wp := io.Pipe()
-	cmd := exec.Command("/bin/sh", "-c", command)
+	var cmd *exec.Cmd
+
+	if w.WithShell {
+		cmd = exec.Command("/bin/sh", "-c", command)
+	} else {
+		cmd = exec.Command(command)
+	}
 	cmd.Stdout = wp
 	cmd.Stderr = wp
 
@@ -115,21 +124,21 @@ func (w *Watcher) exec(command string) {
 
 	go func() {
 		if err := cmd.Run(); err != nil {
-			log.Println(err)
+			log.Printf("watcher %s: %v", w.Name, err)
 		}
 		wp.Close()
 	}()
 
 	for {
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-			break
-		}
-
 		b := make([]byte, 1024)
-		n, _ := rp.Read(b)
+		n, err := rp.Read(b)
 
 		if n > 0 {
 			fmt.Printf("%s", string(b))
+		}
+
+		if err != nil {
+			break
 		}
 	}
 
@@ -137,6 +146,67 @@ func (w *Watcher) exec(command string) {
 	fmt.Printf("%s", string(b))
 
 	log.Printf("finished command for watcher %s", w.Name)
+}
+
+func (w *Watcher) handleFSEvent(event fsnotify.Event) {
+	command := strings.Replace(w.Command, "%match", w.Match, -1)
+	command = strings.Replace(command, "%filter", w.Filter, -1)
+	command = strings.Replace(command, "%event.file", event.Name, -1)
+	command = strings.Replace(command, "%event.op", event.Op.String(), -1)
+
+	if w.Debug {
+		log.Printf("event: %v", event)
+		log.Printf("command: %v", command)
+	}
+
+	if w.filter != nil && !w.filter.MatchString(event.Name) {
+		return
+	}
+
+	matchstat, err := os.Stat(event.Name)
+	if err != nil {
+		log.Printf("worker: %s: %v", event.Name, err)
+		return
+	}
+
+	// just to be very explicit
+	isFile := !matchstat.IsDir()
+	isDir := matchstat.IsDir()
+
+	isWrite := fsnotify.Write&event.Op == fsnotify.Write
+	isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
+	isChmod := fsnotify.Chmod&event.Op == fsnotify.Chmod
+	//isCreate := fsnotify.Create&event.Op == fsnotify.Create
+	isRename := fsnotify.Rename&event.Op == fsnotify.Rename
+
+	if w.getExecuting() {
+		if w.Debug {
+			log.Printf("already running, ignoring")
+		}
+		return
+	}
+
+	if (isWrite || isChmod) && isFile {
+		go w.exec(command)
+
+	} else if (isRemove || isRename) && isFile {
+		// FIXIT: ...
+		time.Sleep(time.Millisecond * 100)
+
+		_, err := os.Stat(event.Name)
+		if err == nil {
+			w.FSWatcher.Add(event.Name)
+			go w.exec(command)
+		} else {
+			log.Fatalf("cannot re-add file: %s", event.Name)
+		}
+
+	} else if isDir {
+		go w.exec(command)
+	}
+
+	time.Sleep(time.Millisecond * 10)
+
 }
 
 // Work fires the watcher and run commands when an event is received.
@@ -147,56 +217,7 @@ func (w *Watcher) Work() error {
 		for {
 			select {
 			case event := <-w.FSWatcher.Events:
-				if w.Debug {
-					log.Printf("event: %v", event)
-					log.Printf("command: %v", w.Command)
-				}
-
-				if w.filter != nil && !w.filter.MatchString(event.Name) {
-					break
-				}
-
-				matchstat, err := os.Stat(event.Name)
-				if err != nil {
-					log.Printf("worker: %s: %v", event.Name, err)
-					break
-				}
-
-				// just to be very explicit
-				isFile := !matchstat.IsDir()
-				isDir := matchstat.IsDir()
-
-				isWrite := fsnotify.Write&event.Op == fsnotify.Write
-				isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
-				isChmod := fsnotify.Chmod&event.Op == fsnotify.Chmod
-				//isCreate := fsnotify.Create&event.Op == fsnotify.Create
-				isRename := fsnotify.Rename&event.Op == fsnotify.Rename
-
-				if w.getExecuting() {
-					if w.Debug {
-						log.Printf("already running, ignoring")
-					}
-					break
-				}
-
-				if (isWrite || isChmod) && isFile {
-					go w.exec(w.Command)
-
-				} else if (isRemove || isRename) && isFile {
-					// FIXIT: ...
-					time.Sleep(time.Millisecond * 10)
-
-					_, err := os.Stat(event.Name)
-					if err == nil {
-						go w.exec(w.Command)
-						w.FSWatcher.Add(event.Name)
-					}
-
-				} else if isDir {
-					go w.exec(w.Command)
-				}
-
-				time.Sleep(time.Millisecond * 10)
+				w.handleFSEvent(event)
 
 			case err := <-w.FSWatcher.Errors:
 				log.Printf("error: %v", err)
