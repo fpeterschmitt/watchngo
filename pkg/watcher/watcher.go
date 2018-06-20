@@ -125,11 +125,14 @@ func (w *Watcher) exec(command string) {
 
 	log.Printf("running command for watcher %s", w.Name)
 
+	execFinished := make(chan bool, 1)
+
 	go func() {
 		if err := cmd.Run(); err != nil {
 			log.Printf("watcher %s: %v", w.Name, err)
 		}
 		wp.Close()
+		execFinished <- true
 	}()
 
 	reader := bufio.NewReader(rp)
@@ -151,10 +154,11 @@ func (w *Watcher) exec(command string) {
 		fmt.Printf("%s", string(b))
 	}
 
+	<-execFinished
 	log.Printf("finished command for watcher %s", w.Name)
 }
 
-func (w *Watcher) handleFSEvent(event fsnotify.Event) {
+func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 	eventFile := path.Clean(event.Name)
 
 	command := strings.Replace(w.Command, "%match", w.Match, -1)
@@ -168,11 +172,11 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	}
 
 	if w.filter != nil && !w.filter.MatchString(eventFile) {
-		return
+		return false
 	}
 
 	if eventFile == "" {
-		return
+		return false
 	}
 
 	isWrite := fsnotify.Write&event.Op == fsnotify.Write
@@ -184,7 +188,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	eventFileStat, err := os.Stat(eventFile)
 	if err != nil && !isRemove && !isRename {
 		log.Printf("worker: %s: %v", eventFile, err)
-		return
+		return false
 	}
 
 	// just to be very explicit
@@ -195,33 +199,46 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		if w.Debug {
 			log.Printf("already running, ignoring")
 		}
-		return
+		return false
 	}
 
+	mustExec := false
 	if (isWrite || isChmod) && isFile {
-		go w.exec(command)
-
+		mustExec = true
 	} else if (isRemove || isRename) && isFile {
 		w.FSWatcher.Remove(eventFile)
 
-		// FIXIT: properly wait for the file to reappear.
-		time.Sleep(time.Millisecond * 100)
+		retries := 0
+		for retries < 10 {
+			_, err := os.Stat(eventFile)
 
-		_, err := os.Stat(eventFile)
-		if err == nil {
-			w.FSWatcher.Add(eventFile)
-			go w.exec(command)
-		} else {
-			log.Printf("cannot re-add file: %s", eventFile)
+			if err == nil {
+				w.FSWatcher.Add(eventFile)
+				mustExec = true
+				break
+			}
+
+			time.Sleep(time.Millisecond * 100)
+			retries++
 		}
 
+		if retries == 10 {
+			log.Printf("cannot re-add file: %s", eventFile)
+		}
 	} else if isDir {
-		go w.exec(command)
+		mustExec = true
 	}
+
+	if mustExec && !executed {
+		w.exec(command)
+	}
+
+	return mustExec
 }
 
 func (w *Watcher) eventQueueConsumer() {
-	timer := time.NewTimer(time.Millisecond * 100)
+	timerInterval := time.Millisecond * 500
+	timer := time.NewTimer(timerInterval)
 	evtDate := time.Now()
 	events := make([]fsnotify.Event, 0)
 
@@ -231,13 +248,19 @@ func (w *Watcher) eventQueueConsumer() {
 			events = append(events, event)
 			evtDate = time.Now()
 		case <-timer.C:
-			if time.Now().Sub(evtDate) > time.Millisecond*500 && len(events) > 0 {
+			if time.Now().Sub(evtDate) > timerInterval && len(events) > 0 {
+				if w.Debug {
+					log.Printf("sending %d events", len(events))
+					log.Printf("events: %v", events)
+				}
+				executed := false
 				for _, event := range events {
-					w.handleFSEvent(event)
+					executed = executed || w.handleFSEvent(event, executed)
 				}
 				events = make([]fsnotify.Event, 0)
+				evtDate = time.Now()
 			}
-			timer.Reset(time.Millisecond * 100)
+			timer.Reset(timerInterval)
 		}
 	}
 }
