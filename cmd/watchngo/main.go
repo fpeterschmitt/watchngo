@@ -27,10 +27,7 @@ func main() {
 			continue
 		}
 
-		if err = watcher.Work(); err != nil {
-			log.Printf("error: watcher.Work: %s: %v", watcher.Name, err)
-			continue
-		}
+		go watcher.Work()
 
 		working++
 	}

@@ -20,17 +20,18 @@ import (
 
 // Watcher ...
 type Watcher struct {
-	Name      string
-	Command   string
-	Match     string
-	Filter    string
-	FSWatcher *fsnotify.Watcher
-	Shell     string
-	WithShell bool
-	Debug     bool
-	executing bool
-	eLock     sync.RWMutex
-	filter    *regexp.Regexp
+	Name       string
+	Command    string
+	Match      string
+	Filter     string
+	FSWatcher  *fsnotify.Watcher
+	Shell      string
+	WithShell  bool
+	Debug      bool
+	executing  bool
+	eLock      sync.RWMutex
+	filter     *regexp.Regexp
+	eventQueue chan fsnotify.Event
 }
 
 // Find add files to the watcher. Currently only one file with it's exact
@@ -217,27 +218,48 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	} else if isDir {
 		go w.exec(command)
 	}
+}
 
-	time.Sleep(time.Millisecond * 10)
+func (w *Watcher) eventQueueConsumer() {
+	timer := time.NewTimer(time.Millisecond * 100)
+	evtDate := time.Now()
+	events := make([]fsnotify.Event, 0)
+
+	for {
+		select {
+		case event := <-w.eventQueue:
+			events = append(events, event)
+			evtDate = time.Now()
+		case <-timer.C:
+			if time.Now().Sub(evtDate) > time.Millisecond*500 && len(events) > 0 {
+				for _, event := range events {
+					w.handleFSEvent(event)
+				}
+				events = make([]fsnotify.Event, 0)
+			}
+			timer.Reset(time.Millisecond * 100)
+		}
+	}
 }
 
 // Work fires the watcher and run commands when an event is received.
 func (w *Watcher) Work() error {
 	w.setExecuting(false)
 
-	go func() {
-		for {
-			select {
-			case event := <-w.FSWatcher.Events:
-				w.handleFSEvent(event)
-
-			case err := <-w.FSWatcher.Errors:
-				log.Printf("error: %v", err)
-			}
-		}
-	}()
+	w.eventQueue = make(chan fsnotify.Event)
+	go w.eventQueueConsumer()
 
 	log.Printf("running watcher %v", w.Name)
 
-	return nil
+	for {
+		select {
+		case event := <-w.FSWatcher.Events:
+			w.eventQueue <- event
+
+		case err := <-w.FSWatcher.Errors:
+			log.Printf("error: %v, watcher %s stopped", err, w.Name)
+			w.FSWatcher.Close()
+			return err
+		}
+	}
 }
