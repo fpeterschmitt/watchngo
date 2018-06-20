@@ -186,9 +186,13 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 		return
 	}
 
-	// just to be very explicit
-	isFile := !eventFileStat.IsDir()
-	isDir := eventFileStat.IsDir()
+	isFile := false
+	isDir := false
+
+	if eventFileStat != nil {
+		isFile = !eventFileStat.IsDir()
+		isDir = eventFileStat.IsDir()
+	}
 
 	if w.getExecuting() {
 		if w.Debug {
@@ -200,7 +204,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event) {
 	if (isWrite || isChmod) && isFile {
 		go w.exec(command)
 
-	} else if (isRemove || isRename) && isFile {
+	} else if isRemove || isRename {
 		w.FSWatcher.Remove(eventFile)
 
 		// FIXIT: properly wait for the file to reappear.
