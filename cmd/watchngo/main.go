@@ -5,7 +5,6 @@ import (
 
 	"github.com/Leryan/watchngo/pkg/conf"
 	"github.com/Leryan/watchngo/pkg/watcher"
-	"github.com/fsnotify/fsnotify"
 
 	"flag"
 )
@@ -43,22 +42,20 @@ func main() {
 	flag.Parse()
 
 	if *flagCommand != "" && *flagMatch != "" {
-		fswatcher, err := fsnotify.NewWatcher()
+		w, err := watcher.NewWatcher(
+			"on the fly",
+			*flagMatch,
+			*flagFilter,
+			*flagCommand,
+			true, // with shell
+			*flagDebug,
+		)
 
 		if err != nil {
-			log.Fatalf("error: on the fly watcher: %v", err)
+			log.Fatalf("error: on the fly: %v", err)
 		}
 
-		run([]*watcher.Watcher{&watcher.Watcher{
-			Name: "on the fly",
-			//Command:   strconv.Quote(*flagCommand),
-			Command:   *flagCommand,
-			Match:     *flagMatch,
-			Filter:    *flagFilter,
-			FSWatcher: fswatcher,
-			Debug:     *flagDebug,
-			WithShell: true,
-		}})
+		run([]*watcher.Watcher{w})
 	} else {
 
 		watchers, err := conf.WatchersFromPath(*flagCfg)
@@ -67,6 +64,5 @@ func main() {
 		}
 
 		run(watchers)
-
 	}
 }

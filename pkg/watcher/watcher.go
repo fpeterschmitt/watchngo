@@ -290,3 +290,20 @@ func (w *Watcher) Work() error {
 		}
 	}
 }
+
+func NewWatcher(name, match, filter, command string, withShell, debug bool) (*Watcher, error) {
+	fswatcher, err := fsnotify.NewWatcher()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Watcher{
+		Name:      name,
+		Filter:    filter,
+		Command:   command,
+		FSWatcher: fswatcher,
+		WithShell: withShell,
+		Match:     match,
+	}, nil
+}
