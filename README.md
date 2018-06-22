@@ -1,9 +1,8 @@
 # Watch'n'Go
 
-**WORK IN PROGRESS**
-
  * Watch a single file
  * Watch files recursively in a directory, with an optional pattern
+ * Store configuration in INI file or use only the command line
  * Run a command on modifications through `/bin/sh -c <command>`
 
 ## Install
@@ -27,7 +26,4 @@ See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
 
 ## TODO
 
- * [x] Recursive directory watching
- * [x] Match files using `path/filepath.Glob()`
  * [ ] Override the default command (`/bin/sh -c <command>`) that starts the actual command by configuration
- * [x] Command interpolation: `%match`, `%filter`, `%event.file`, `%event.op`
