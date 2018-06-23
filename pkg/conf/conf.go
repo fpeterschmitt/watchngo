@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/Leryan/watchngo/pkg/watcher"
 
@@ -9,7 +10,7 @@ import (
 )
 
 // WatchersFromPath returns configuration from file at path
-func WatchersFromPath(path string) ([]*watcher.Watcher, error) {
+func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, fmt.Errorf("conf: from path: %s: %v", path, err)
@@ -71,6 +72,7 @@ func WatchersFromPath(path string) ([]*watcher.Watcher, error) {
 			command,
 			withShell,
 			wdebug,
+			logger,
 		)
 
 		if err != nil {
