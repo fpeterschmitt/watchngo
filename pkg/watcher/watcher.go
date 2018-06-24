@@ -23,7 +23,6 @@ type Watcher struct {
 	Filter     string
 	FSWatcher  *fsnotify.Watcher
 	Shell      string
-	WithShell  bool
 	Debug      bool
 	Logger     *log.Logger
 	executor   Executor
@@ -236,7 +235,14 @@ func (w *Watcher) Work() error {
 	}
 }
 
-func NewWatcher(name, match, filter, command string, withShell, debug bool, logger *log.Logger) (*Watcher, error) {
+// NewWatcher requires logger and executor to not be nil.
+// param name is purely cosmetic, for logs.
+// param match is a file, directory or "glob" path (shell-like).
+// param command is a single command to run through executor.
+// param executor is an instance of Executor that is not required to honor the given command, like for the Print executor.
+// param debug shows more details when running.
+// param logger must log to stderr when using executor Print.
+func NewWatcher(name, match, filter, command string, executor Executor, debug bool, logger *log.Logger) (*Watcher, error) {
 	fswatcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
@@ -247,11 +253,8 @@ func NewWatcher(name, match, filter, command string, withShell, debug bool, logg
 		return nil, fmt.Errorf("logger cannot be nil")
 	}
 
-	var executor Executor
-	if withShell {
-		executor = NewUnixShellExec(os.Stdout)
-	} else {
-		executor = NewRawExec(os.Stdout)
+	if executor == nil {
+		return nil, fmt.Errorf("executor cannot be nil")
 	}
 
 	return &Watcher{
@@ -259,7 +262,6 @@ func NewWatcher(name, match, filter, command string, withShell, debug bool, logg
 		Filter:    filter,
 		Command:   command,
 		FSWatcher: fswatcher,
-		WithShell: withShell,
 		Match:     match,
 		Logger:    logger,
 		executor:  executor,

@@ -38,6 +38,7 @@ func main() {
 	flagMatch := flag.String("match", "", "file or directory to watch")
 	flagFilter := flag.String("filter", "", "filter as a regex supported by golang")
 	flagCommand := flag.String("command", "", "command to run. see configuration example for supported variables")
+	flagExecutor := flag.String("executor", "unixshell", "executors: unixshell, raw, stdout")
 	flagDebug := flag.Bool("debug", false, "debug")
 
 	flag.Parse()
@@ -52,7 +53,7 @@ func main() {
 			*flagMatch,
 			*flagFilter,
 			*flagCommand,
-			true, // with shell
+			conf.ExecutorFrom(*flagExecutor),
 			*flagDebug,
 			logger,
 		)

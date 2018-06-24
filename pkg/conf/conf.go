@@ -3,11 +3,33 @@ package conf
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/Leryan/watchngo/pkg/watcher"
 
 	"github.com/go-ini/ini"
 )
+
+// Executor names.
+const (
+	ExecutorUnixShell = "unixshell"
+	ExecutorStdout    = "stdout"
+	ExecutorRaw       = "raw"
+)
+
+// ExecutorFrom maps configuration "executor" to an instance of executor.
+func ExecutorFrom(name string) watcher.Executor {
+	switch name {
+	case ExecutorRaw:
+		return watcher.NewRawExec(os.Stdout)
+	case ExecutorStdout:
+		return watcher.NewPrintExec(os.Stdout)
+	case ExecutorUnixShell:
+		fallthrough
+	default:
+		return watcher.NewUnixShellExec(os.Stdout)
+	}
+}
 
 // WatchersFromPath returns configuration from file at path
 func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, error) {
@@ -40,7 +62,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		command := ""
 		filter := ""
 		wdebug := debug
-		withShell := true
+		var executor watcher.Executor
 
 		if section.HasKey("match") {
 			match = section.Key("match").String()
@@ -58,6 +80,11 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 			filter = section.Key("filter").String()
 		}
 
+		if section.HasKey("executor") {
+			name := section.Key("executor").String()
+			executor = ExecutorFrom(name)
+		}
+
 		if section.HasKey("debug") {
 			wdebug, err = section.Key("debug").Bool()
 			if err != nil {
@@ -70,7 +97,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 			match,
 			filter,
 			command,
-			withShell,
+			executor,
 			wdebug,
 			logger,
 		)
