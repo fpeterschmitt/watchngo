@@ -3,7 +3,8 @@
  * Watch a single file
  * Watch files recursively in a directory, with an optional pattern
  * Store configuration in INI file or use only the command line
- * Run a command on modifications through `/bin/sh -c <command>`
+ * Run a command on modifications through `/bin/sh -c <command>` by default…
+ * …or output on stdout so you do whatever you want (`fswatch`-like)
 
 ## Install
 
