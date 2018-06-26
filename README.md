@@ -15,7 +15,7 @@ go install github.com/Leryan/watchngo/cmd/watchngo
 ## Usage
 
 ```
-watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <filter>] [-debug]]
+watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <filter>] [-debug] [-output unixshell|raw|stdout]]
 ```
 
 When using `-command -match -filter` options, configuration will be ignored. This makes it possible to use `watchngo` without writing a configuration file.
@@ -23,7 +23,3 @@ When using `-command -match -filter` options, configuration will be ignored. Thi
 ## Configuration
 
 See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
-
-## TODO
-
- * [ ] Override the default command (`/bin/sh -c <command>`) that starts the actual command by configuration
