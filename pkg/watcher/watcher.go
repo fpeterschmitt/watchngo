@@ -1,13 +1,10 @@
 package watcher
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"regexp"
 	"strings"
@@ -26,9 +23,9 @@ type Watcher struct {
 	Filter     string
 	FSWatcher  *fsnotify.Watcher
 	Shell      string
-	WithShell  bool
 	Debug      bool
-	executing  bool
+	Logger     *log.Logger
+	executor   Executor
 	eLock      sync.RWMutex
 	filter     *regexp.Regexp
 	eventQueue chan fsnotify.Event
@@ -47,14 +44,14 @@ func (w *Watcher) Find() error {
 		}
 
 		if w.Debug {
-			log.Printf("watcher %s found recursive directories", w.Name)
+			w.Logger.Printf("watcher %s found recursive directories", w.Name)
 		}
 
 	} else if err == nil && !matchstat.IsDir() {
 		matches = append(matches, w.Match)
 
 		if w.Debug {
-			log.Printf("watcher %s use single file", w.Name)
+			w.Logger.Printf("watcher %s use single file", w.Name)
 		}
 
 	} else if err != nil {
@@ -67,7 +64,7 @@ func (w *Watcher) Find() error {
 		}
 
 		if w.Debug {
-			log.Printf("watcher %s use glob match", w.Name)
+			w.Logger.Printf("watcher %s use glob match", w.Name)
 		}
 
 	} else {
@@ -86,7 +83,7 @@ func (w *Watcher) Find() error {
 
 	for _, match := range matches {
 		if w.Debug {
-			log.Printf("add match: %s", match)
+			w.Logger.Printf("add match: %s", match)
 		}
 		err := w.FSWatcher.Add(match)
 		if err != nil {
@@ -96,66 +93,15 @@ func (w *Watcher) Find() error {
 	return nil
 }
 
-func (w *Watcher) setExecuting(executing bool) {
-	w.eLock.Lock()
-	defer w.eLock.Unlock()
-	w.executing = executing
-}
+func (w *Watcher) exec(command string, output io.Writer) {
+	w.Logger.Printf("running command on watcher %s", w.Name)
+	err := w.executor.Exec(command)
 
-func (w *Watcher) getExecuting() bool {
-	w.eLock.Lock()
-	defer w.eLock.Unlock()
-	return w.executing
-}
-
-func (w *Watcher) exec(command string) {
-	w.setExecuting(true)
-	defer w.setExecuting(false)
-
-	rp, wp := io.Pipe()
-	var cmd *exec.Cmd
-
-	if w.WithShell {
-		cmd = exec.Command("/bin/sh", "-c", command)
+	if err == nil {
+		w.Logger.Printf("finished running command on watcher %s", w.Name)
 	} else {
-		cmd = exec.Command(command)
+		w.Logger.Printf("finished running command on watcher %s with error: %v", w.Name, err)
 	}
-	cmd.Stdout = wp
-	cmd.Stderr = wp
-
-	log.Printf("running command for watcher %s", w.Name)
-
-	execFinished := make(chan bool, 1)
-
-	go func() {
-		if err := cmd.Run(); err != nil {
-			log.Printf("watcher %s: %v", w.Name, err)
-		}
-		wp.Close()
-		execFinished <- true
-	}()
-
-	reader := bufio.NewReader(rp)
-
-	for {
-		b, err := reader.ReadBytes('\n')
-
-		if len(b) > 0 {
-			fmt.Printf("%s", string(b))
-		}
-
-		if err != nil {
-			break
-		}
-	}
-
-	if reader.Buffered() > 0 {
-		b, _ := ioutil.ReadAll(reader)
-		fmt.Printf("%s", string(b))
-	}
-
-	<-execFinished
-	log.Printf("finished command for watcher %s", w.Name)
 }
 
 func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
@@ -167,8 +113,8 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 	command = strings.Replace(command, "%event.op", event.Op.String(), -1)
 
 	if w.Debug {
-		log.Printf("event: %v", event)
-		log.Printf("command: %v", command)
+		w.Logger.Printf("event: %v", event)
+		w.Logger.Printf("command: %v", command)
 	}
 
 	if w.filter != nil && !w.filter.MatchString(eventFile) {
@@ -187,7 +133,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 
 	eventFileStat, err := os.Stat(eventFile)
 	if err != nil && !isRemove && !isRename {
-		log.Printf("worker: %s: %v", eventFile, err)
+		w.Logger.Printf("worker: %s: %v", eventFile, err)
 		return false
 	}
 
@@ -199,9 +145,9 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 		isDir = eventFileStat.IsDir()
 	}
 
-	if w.getExecuting() {
+	if w.executor.Running() {
 		if w.Debug {
-			log.Printf("already running, ignoring")
+			w.Logger.Printf("already running, ignoring")
 		}
 		return false
 	}
@@ -227,14 +173,14 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 		}
 
 		if retries == 10 {
-			log.Printf("cannot re-add file: %s", eventFile)
+			w.Logger.Printf("cannot re-add file: %s", eventFile)
 		}
 	} else if isDir {
 		mustExec = true
 	}
 
 	if mustExec && !executed {
-		w.exec(command)
+		w.exec(command, os.Stdout)
 	}
 
 	return mustExec
@@ -254,8 +200,8 @@ func (w *Watcher) eventQueueConsumer() {
 		case <-timer.C:
 			if time.Now().Sub(evtDate) > timerInterval && len(events) > 0 {
 				if w.Debug {
-					log.Printf("sending %d events", len(events))
-					log.Printf("events: %v", events)
+					w.Logger.Printf("sending %d events", len(events))
+					w.Logger.Printf("events: %v", events)
 				}
 				executed := false
 				for _, event := range events {
@@ -271,12 +217,10 @@ func (w *Watcher) eventQueueConsumer() {
 
 // Work fires the watcher and run commands when an event is received.
 func (w *Watcher) Work() error {
-	w.setExecuting(false)
-
 	w.eventQueue = make(chan fsnotify.Event)
 	go w.eventQueueConsumer()
 
-	log.Printf("running watcher %v", w.Name)
+	w.Logger.Printf("running watcher %v", w.Name)
 
 	for {
 		select {
@@ -284,18 +228,33 @@ func (w *Watcher) Work() error {
 			w.eventQueue <- event
 
 		case err := <-w.FSWatcher.Errors:
-			log.Printf("error: %v, watcher %s stopped", err, w.Name)
+			w.Logger.Printf("error: %v, watcher %s stopped", err, w.Name)
 			w.FSWatcher.Close()
 			return err
 		}
 	}
 }
 
-func NewWatcher(name, match, filter, command string, withShell, debug bool) (*Watcher, error) {
+// NewWatcher requires logger and executor to not be nil.
+// param name is purely cosmetic, for logs.
+// param match is a file, directory or "glob" path (shell-like).
+// param command is a single command to run through executor.
+// param executor is an instance of Executor that is not required to honor the given command, like for the Print executor.
+// param debug shows more details when running.
+// param logger must log to stderr when using executor Print.
+func NewWatcher(name, match, filter, command string, executor Executor, debug bool, logger *log.Logger) (*Watcher, error) {
 	fswatcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
 		return nil, err
+	}
+
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+
+	if executor == nil {
+		return nil, fmt.Errorf("executor cannot be nil")
 	}
 
 	return &Watcher{
@@ -303,7 +262,8 @@ func NewWatcher(name, match, filter, command string, withShell, debug bool) (*Wa
 		Filter:    filter,
 		Command:   command,
 		FSWatcher: fswatcher,
-		WithShell: withShell,
 		Match:     match,
+		Logger:    logger,
+		executor:  executor,
 	}, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/Leryan/watchngo/pkg/conf"
 	"github.com/Leryan/watchngo/pkg/watcher"
@@ -37,18 +38,28 @@ func main() {
 	flagMatch := flag.String("match", "", "file or directory to watch")
 	flagFilter := flag.String("filter", "", "filter as a regex supported by golang")
 	flagCommand := flag.String("command", "", "command to run. see configuration example for supported variables")
+	flagExecutor := flag.String("executor", "unixshell", "executors: unixshell, raw, stdout")
 	flagDebug := flag.Bool("debug", false, "debug")
 
 	flag.Parse()
 
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+
+	log.SetOutput(os.Stderr)
+
 	if *flagCommand != "" && *flagMatch != "" {
+		executor, err := conf.ExecutorFrom(*flagExecutor)
+		if err != nil {
+			log.Fatal(err)
+		}
 		w, err := watcher.NewWatcher(
 			"on the fly",
 			*flagMatch,
 			*flagFilter,
 			*flagCommand,
-			true, // with shell
+			executor,
 			*flagDebug,
+			logger,
 		)
 
 		if err != nil {
@@ -58,7 +69,7 @@ func main() {
 		run([]*watcher.Watcher{w})
 	} else {
 
-		watchers, err := conf.WatchersFromPath(*flagCfg)
+		watchers, err := conf.WatchersFromPath(*flagCfg, logger)
 		if err != nil {
 			log.Fatalf("error: WatchersFromPath: %v", err)
 		}
