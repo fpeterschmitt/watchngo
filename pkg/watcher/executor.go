@@ -32,7 +32,7 @@ func (e *printExec) Running() bool {
 }
 
 func (e *printExec) Exec(params ...string) error {
-	_, err := e.output.Write([]byte(strings.Join(params, " ")))
+	_, err := e.output.Write([]byte(strings.Join(params, " ") + "\n"))
 	return err
 }
 

@@ -48,12 +48,16 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	if *flagCommand != "" && *flagMatch != "" {
+		executor, err := conf.ExecutorFrom(*flagExecutor)
+		if err != nil {
+			log.Fatal(err)
+		}
 		w, err := watcher.NewWatcher(
 			"on the fly",
 			*flagMatch,
 			*flagFilter,
 			*flagCommand,
-			conf.ExecutorFrom(*flagExecutor),
+			executor,
 			*flagDebug,
 			logger,
 		)

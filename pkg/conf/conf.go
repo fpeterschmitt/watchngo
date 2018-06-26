@@ -18,16 +18,16 @@ const (
 )
 
 // ExecutorFrom maps configuration "executor" to an instance of executor.
-func ExecutorFrom(name string) watcher.Executor {
+func ExecutorFrom(name string) (watcher.Executor, error) {
 	switch name {
 	case ExecutorRaw:
-		return watcher.NewRawExec(os.Stdout)
+		return watcher.NewRawExec(os.Stdout), nil
 	case ExecutorStdout:
-		return watcher.NewPrintExec(os.Stdout)
+		return watcher.NewPrintExec(os.Stdout), nil
 	case ExecutorUnixShell:
-		fallthrough
+		return watcher.NewUnixShellExec(os.Stdout), nil
 	default:
-		return watcher.NewUnixShellExec(os.Stdout)
+		return nil, fmt.Errorf("conf: unknown executor type %s", name)
 	}
 }
 
@@ -53,6 +53,11 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		if err != nil {
 			return nil, fmt.Errorf("conf: debug is not a bool: %v", err)
 		}
+	}
+
+	defExecutorName := ExecutorUnixShell
+	if defaultSection.HasKey("executor") {
+		defExecutorName = defaultSection.Key("executor").String()
 	}
 
 	// exclude the DEFAULT section, which comes first
@@ -82,7 +87,14 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 
 		if section.HasKey("executor") {
 			name := section.Key("executor").String()
-			executor = ExecutorFrom(name)
+			executor, err = ExecutorFrom(name)
+		} else {
+			executor, err = ExecutorFrom(defExecutorName)
+		}
+
+		// executor error
+		if err != nil {
+			return nil, err
 		}
 
 		if section.HasKey("debug") {
