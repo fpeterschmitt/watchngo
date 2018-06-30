@@ -6,13 +6,6 @@
  * Run a command on modifications through `/bin/sh -c <command>` by default…
  * …or output on stdout so you do whatever you want (`fswatch`-like)
 
-## Install
-
-```
-go get -u github.com/Leryan/watchngo/cmd/watchngo
-go install github.com/Leryan/watchngo/cmd/watchngo
-```
-
 ## Usage
 
 ```
@@ -20,6 +13,35 @@ watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <
 ```
 
 When using `-command -match -filter` options, configuration will be ignored. This makes it possible to use `watchngo` without writing a configuration file.
+
+## Install
+
+### Binary
+
+Checkout the [releases](https://github.com/Leryan/watchngo/releases) binaries and put it somewhere in your `$PATH`.
+
+Quick win with the latest release:
+
+```
+sudo wget https://github.com/Leryan/watchngo/releases/download/1.1.0/watchngo -O /usr/local/bin/watchngo
+sudo chmod 755 /usr/local/bin/watchngo
+```
+
+### Build from sources
+
+```
+mkdir -p $GOPATH/src/github.com/Leryan
+cd $GOPATH/src/github.com/Leryan
+git clone https://github.com/Leryan/watchngo
+
+cd watchngo
+
+glide install
+cd cmd/watchngo
+
+make
+make install
+```
 
 ## Configuration
 
