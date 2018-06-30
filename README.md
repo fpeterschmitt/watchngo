@@ -46,3 +46,7 @@ cd cmd/watchngo
 make
 make install
 ```
+
+## Bugs, questions, suggestions?
+
+Ask [on github](https://github.com/Leryan/watchngo/issues).
