@@ -14,6 +14,10 @@ watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <
 
 When using `-command -match -filter` options, configuration will be ignored. This makes it possible to use `watchngo` without writing a configuration file.
 
+### Configuration
+
+See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
+
 ## Install
 
 ### Binary
@@ -42,7 +46,3 @@ cd cmd/watchngo
 make
 make install
 ```
-
-## Configuration
-
-See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
