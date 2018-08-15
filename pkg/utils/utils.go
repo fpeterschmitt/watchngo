@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +22,6 @@ func NewWalkRec() WalkRec {
 func (w *WalkRec) walkRecursive(file string, info os.FileInfo, err error) error {
 	if err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
-			log.Printf("skipped: %v", err)
 			w.Exclude = append(w.Exclude, file)
 			return nil
 		}

@@ -90,6 +90,11 @@ func (w *Watcher) Find() error {
 			return fmt.Errorf("on match: %s: %v", match, err)
 		}
 	}
+
+	if len(wr.Exclude) > 0 {
+		w.Logger.Printf("exclusions: %v", wr.Exclude)
+	}
+
 	return nil
 }
 
