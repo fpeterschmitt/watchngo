@@ -35,10 +35,10 @@ type Watcher struct {
 // path (may be relative) is supported.
 func (w *Watcher) Find() error {
 	matchstat, err := os.Stat(w.Match)
-	matches := make([]string, 0)
+	wr := utils.NewWalkRec()
 
 	if err == nil && matchstat.IsDir() {
-		matches, err = utils.FindRecursive(w.Match, matches)
+		wr, err = utils.FindRecursive(w.Match, wr)
 		if err != nil {
 			return fmt.Errorf("find: %v", err)
 		}
@@ -48,18 +48,18 @@ func (w *Watcher) Find() error {
 		}
 
 	} else if err == nil && !matchstat.IsDir() {
-		matches = append(matches, w.Match)
+		wr.Matches = append(wr.Matches, w.Match)
 
 		if w.Debug {
 			w.Logger.Printf("watcher %s use single file", w.Name)
 		}
 
 	} else if err != nil {
-		matches, err = utils.FindGlob(w.Match, matches)
+		wr.Matches, err = utils.FindGlob(w.Match, wr.Matches)
 
 		if err != nil {
 			return fmt.Errorf("glob: %v", err)
-		} else if len(matches) == 0 {
+		} else if len(wr.Matches) == 0 {
 			return fmt.Errorf("empty glob: %s", w.Match)
 		}
 
@@ -81,7 +81,7 @@ func (w *Watcher) Find() error {
 		w.filter = rfilter
 	}
 
-	for _, match := range matches {
+	for _, match := range wr.Matches {
 		if w.Debug {
 			w.Logger.Printf("add match: %s", match)
 		}
@@ -166,6 +166,8 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 				w.FSWatcher.Add(eventFile)
 				mustExec = true
 				break
+			} else if w.Debug {
+				w.Logger.Printf("re-add attempt: %v", err)
 			}
 
 			time.Sleep(time.Millisecond * 100)
@@ -264,6 +266,7 @@ func NewWatcher(name, match, filter, command string, executor Executor, debug bo
 		FSWatcher: fswatcher,
 		Match:     match,
 		Logger:    logger,
+		Debug:     debug,
 		executor:  executor,
 	}, nil
 }
