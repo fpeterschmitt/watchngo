@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/Leryan/watchngo/pkg/runner"
 	"log"
 	"os"
 
@@ -9,28 +10,6 @@ import (
 
 	"flag"
 )
-
-func run(watchers []*watcher.Watcher) {
-	forever := make(chan bool, 1)
-	working := 0
-
-	for _, watcher := range watchers {
-		if err := watcher.Find(); err != nil {
-			log.Printf("error: watcher.Find: %s: %v", watcher.Name, err)
-			continue
-		}
-
-		go watcher.Work()
-
-		working++
-	}
-
-	if working > 0 {
-		<-forever
-	} else {
-		log.Fatalf("error: no watcher working")
-	}
-}
 
 func main() {
 	flagCfg := flag.String("conf", "watchngo.ini", "configuration file path")
@@ -66,7 +45,7 @@ func main() {
 			log.Fatalf("error: on the fly: %v", err)
 		}
 
-		run([]*watcher.Watcher{w})
+		runner.Run([]*watcher.Watcher{w})
 	} else {
 
 		watchers, err := conf.WatchersFromPath(*flagCfg, logger)
@@ -74,6 +53,6 @@ func main() {
 			log.Fatalf("error: WatchersFromPath: %v", err)
 		}
 
-		run(watchers)
+		runner.Run(watchers)
 	}
 }

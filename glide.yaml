@@ -1,6 +1,0 @@
-package: github.com/Leryan/watchngo
-import:
-- package: github.com/fsnotify/fsnotify
-  version: ~1.4.7
-- package: github.com/go-ini/ini
-  version: ~1.37.0
