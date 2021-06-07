@@ -210,7 +210,7 @@ func (w *Watcher) Work() error {
 			w.eventQueue <- event
 
 		case err := <-w.FSWatcher.Errors:
-			w.Logger.Printf("error: %v, watcher %s stopped", err, w.Name)
+			w.Logger.Printf("watcher %s stopped: %w", err, w.Name)
 			w.FSWatcher.Close()
 			return err
 		}

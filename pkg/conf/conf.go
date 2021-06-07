@@ -45,7 +45,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 
 	watchers := make([]*watcher.Watcher, 0)
 
-	defaultSection := cfg.Section(ini.DEFAULT_SECTION)
+	defaultSection := cfg.Section(ini.DefaultSection)
 
 	debug := false
 	if defaultSection.HasKey("debug") {
