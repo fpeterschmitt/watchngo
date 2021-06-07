@@ -40,7 +40,7 @@ func (w *Watcher) Find() error {
 	if err == nil && matchstat.IsDir() {
 		wr, err = utils.FindRecursive(w.Match, wr)
 		if err != nil {
-			return fmt.Errorf("find: %v", err)
+			return fmt.Errorf("find: %w", err)
 		}
 
 		if w.Debug {
@@ -58,7 +58,7 @@ func (w *Watcher) Find() error {
 		wr.Matches, err = utils.FindGlob(w.Match, wr.Matches)
 
 		if err != nil {
-			return fmt.Errorf("glob: %v", err)
+			return fmt.Errorf("glob: %w", err)
 		} else if len(wr.Matches) == 0 {
 			return fmt.Errorf("empty glob: %s", w.Match)
 		}
@@ -68,7 +68,7 @@ func (w *Watcher) Find() error {
 		}
 
 	} else {
-		return fmt.Errorf("bad conf: %s: %v", w.Match, err)
+		return fmt.Errorf("bad conf: %s: %w", w.Match, err)
 	}
 
 	if w.Filter != "" {
@@ -85,9 +85,8 @@ func (w *Watcher) Find() error {
 		if w.Debug {
 			w.Logger.Printf("add match: %s", match)
 		}
-		err := w.FSWatcher.Add(match)
-		if err != nil {
-			return fmt.Errorf("on match: %s: %v", match, err)
+		if err := w.FSWatcher.Add(match); err != nil {
+			return fmt.Errorf("on match: %s: %w", match, err)
 		}
 	}
 	return nil

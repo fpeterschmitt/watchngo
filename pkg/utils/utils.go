@@ -27,7 +27,7 @@ func (w *WalkRec) walkRecursive(file string, info os.FileInfo, err error) error 
 			w.Exclude = append(w.Exclude, file)
 			return nil
 		}
-		return fmt.Errorf("walk: %s: %v", file, err)
+		return fmt.Errorf("walk: %s: %w", file, err)
 	}
 
 	if info.IsDir() {
@@ -43,7 +43,7 @@ func FindRecursive(path string, wr WalkRec) (WalkRec, error) {
 	var err error
 
 	if err = filepath.Walk(path, wr.walkRecursive); err != nil {
-		return wr, fmt.Errorf("walk: %s: %v", path, err)
+		return wr, fmt.Errorf("walk: %s: %w", path, err)
 	}
 
 	return wr, nil
@@ -55,7 +55,7 @@ func FindGlob(pattern string, matches []string) ([]string, error) {
 	nMatches, err := filepath.Glob(pattern)
 
 	if err != nil {
-		return matches, fmt.Errorf("glob: %s: %v", pattern, err)
+		return matches, fmt.Errorf("glob: %s: %w", pattern, err)
 	}
 
 	matches = append(matches, nMatches...)

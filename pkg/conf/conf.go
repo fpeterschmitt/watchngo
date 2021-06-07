@@ -35,7 +35,7 @@ func ExecutorFrom(name string) (watcher.Executor, error) {
 func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("conf: from path: %s: %v", path, err)
+		return nil, fmt.Errorf("conf: from path: %s: %w", path, err)
 	}
 
 	// we only have the DEFAULT section
@@ -51,7 +51,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 	if defaultSection.HasKey("debug") {
 		debug, err = defaultSection.Key("debug").Bool()
 		if err != nil {
-			return nil, fmt.Errorf("conf: debug is not a bool: %v", err)
+			return nil, fmt.Errorf("conf: debug is not a bool: %w", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		if section.HasKey("command") {
 			command = section.Key("command").String()
 		} else {
-			return nil, fmt.Errorf("conf: missing required command key: %v", err)
+			return nil, fmt.Errorf("conf: missing required command key: %w", err)
 		}
 
 		if section.HasKey("filter") {
@@ -100,7 +100,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		if section.HasKey("debug") {
 			wdebug, err = section.Key("debug").Bool()
 			if err != nil {
-				return nil, fmt.Errorf("conf: debug is not a bool: %v", err)
+				return nil, fmt.Errorf("conf: debug is not a bool: %w", err)
 			}
 		}
 
@@ -115,7 +115,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		)
 
 		if err != nil {
-			return nil, fmt.Errorf("conf: new watcher: %s: %v", name, err)
+			return nil, fmt.Errorf("conf: new watcher: %s: %w", name, err)
 		}
 
 		watchers = append(watchers, w)
