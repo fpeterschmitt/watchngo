@@ -103,17 +103,17 @@ func (w *Watcher) exec(command string, output io.Writer) {
 	}
 }
 
-func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
-	eventFile := path.Clean(event.Name)
-
+func (w *Watcher) makeCommand(event fsnotify.Event, eventFile string) string {
 	command := strings.Replace(w.Command, "%match", w.Match, -1)
 	command = strings.Replace(command, "%filter", w.Filter, -1)
 	command = strings.Replace(command, "%event.file", eventFile, -1)
 	command = strings.Replace(command, "%event.op", event.Op.String(), -1)
+	return command
+}
 
+func (w *Watcher) handleFSEvent(event fsnotify.Event, eventFile string) bool {
 	if w.Debug {
 		w.Logger.Printf("event: %v", event)
-		w.Logger.Printf("command: %v", command)
 	}
 
 	if w.filter != nil && !w.filter.MatchString(eventFile) {
@@ -127,7 +127,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 	isWrite := fsnotify.Write&event.Op == fsnotify.Write
 	isRemove := fsnotify.Remove&event.Op == fsnotify.Remove
 	isChmod := fsnotify.Chmod&event.Op == fsnotify.Chmod
-	//isCreate := fsnotify.Create&event.Op == fsnotify.Create
+	isCreate := fsnotify.Create&event.Op == fsnotify.Create
 	isRename := fsnotify.Rename&event.Op == fsnotify.Rename
 
 	eventFileStat, err := os.Stat(eventFile)
@@ -152,43 +152,20 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, executed bool) bool {
 	}
 
 	mustExec := false
-	if (isWrite || isChmod) && isFile {
+	if (isWrite || isChmod || isCreate) && isFile {
 		mustExec = true
 	} else if isRemove || isRename {
-		w.FSWatcher.Remove(eventFile)
-
-		retries := 0
-		for retries < 10 {
-			_, err := os.Stat(eventFile)
-
-			if err == nil {
-				w.FSWatcher.Add(eventFile)
-				mustExec = true
-				break
-			} else if w.Debug {
-				w.Logger.Printf("re-add attempt: %v", err)
-			}
-
-			time.Sleep(time.Millisecond * 100)
-			retries++
-		}
-
-		if retries == 10 {
-			w.Logger.Printf("cannot re-add file: %s", eventFile)
-		}
+		_ = w.FSWatcher.Remove(eventFile)
+		mustExec = true
 	} else if isDir {
 		mustExec = true
-	}
-
-	if mustExec && !executed {
-		w.exec(command, os.Stdout)
 	}
 
 	return mustExec
 }
 
 func (w *Watcher) eventQueueConsumer() {
-	timerInterval := time.Millisecond * 500
+	timerInterval := time.Millisecond * 250
 	timer := time.NewTimer(timerInterval)
 	evtDate := time.Now()
 	events := make([]fsnotify.Event, 0)
@@ -206,7 +183,11 @@ func (w *Watcher) eventQueueConsumer() {
 				}
 				executed := false
 				for _, event := range events {
-					executed = executed || w.handleFSEvent(event, executed)
+					eventFile := path.Clean(event.Name)
+					if w.handleFSEvent(event, eventFile) && !executed {
+						w.exec(w.makeCommand(event, eventFile), os.Stdout)
+						executed = true
+					}
 				}
 				events = make([]fsnotify.Event, 0)
 				evtDate = time.Now()
