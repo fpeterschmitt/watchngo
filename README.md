@@ -28,7 +28,7 @@ Checkout the [releases](https://github.com/Leryan/watchngo/releases) binaries an
 Quick win with the latest release:
 
 ```
-sudo wget https://github.com/Leryan/watchngo/releases/download/1.2.0/watchngo -O /usr/local/bin/watchngo
+sudo curl https://github.com/Leryan/watchngo/releases/download/v1.3.1/watchngo -Lo /usr/local/bin/watchngo
 sudo chmod 755 /usr/local/bin/watchngo
 ```
 
