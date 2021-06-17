@@ -22,8 +22,7 @@ type Watcher struct {
 	Filter     string
 	FSWatcher  *fsnotify.Watcher
 	Shell      string
-	Debug      bool
-	Logger     *log.Logger
+	Logger     Logger
 	executor   Executor
 	eLock      sync.RWMutex
 	filter     *regexp.Regexp
@@ -42,16 +41,12 @@ func (w *Watcher) Find() error {
 			return fmt.Errorf("find: %w", err)
 		}
 
-		if w.Debug {
-			w.Logger.Printf("watcher %s found recursive directories", w.Name)
-		}
+		w.Logger.Debug("watcher %s found recursive directories", w.Name)
 
 	} else if err == nil && !matchstat.IsDir() {
 		wr.Matches = append(wr.Matches, w.Match)
 
-		if w.Debug {
-			w.Logger.Printf("watcher %s use single file", w.Name)
-		}
+		w.Logger.Debug("watcher %s use single file", w.Name)
 
 	} else if err != nil {
 		wr.Matches, err = utils.FindGlob(w.Match, wr.Matches)
@@ -62,9 +57,7 @@ func (w *Watcher) Find() error {
 			return fmt.Errorf("empty glob: %s", w.Match)
 		}
 
-		if w.Debug {
-			w.Logger.Printf("watcher %s use glob match", w.Name)
-		}
+		w.Logger.Debug("watcher %s use glob match", w.Name)
 
 	} else {
 		return fmt.Errorf("bad conf: %s: %w", w.Match, err)
@@ -81,9 +74,7 @@ func (w *Watcher) Find() error {
 	}
 
 	for _, match := range wr.Matches {
-		if w.Debug {
-			w.Logger.Printf("add match: %s", match)
-		}
+		w.Logger.Debug("add match: %s", match)
 		if err := w.FSWatcher.Add(match); err != nil {
 			return fmt.Errorf("on match: %s: %w", match, err)
 		}
@@ -92,13 +83,13 @@ func (w *Watcher) Find() error {
 }
 
 func (w *Watcher) exec(command string) {
-	w.Logger.Printf("running command on watcher \"%s\"", w.Name)
+	w.Logger.Log("running command on watcher \"%s\"", w.Name)
 	err := w.executor.Exec(command)
 
 	if err == nil {
-		w.Logger.Printf("finished running command on watcher \"%s\"", w.Name)
+		w.Logger.Log("finished running command on watcher \"%s\"", w.Name)
 	} else {
-		w.Logger.Printf("finished running command on watcher \"%s\" with error: %v", w.Name, err)
+		w.Logger.Log("finished running command on watcher \"%s\" with error: %v", w.Name, err)
 	}
 }
 
@@ -111,9 +102,7 @@ func (w *Watcher) makeCommand(event fsnotify.Event, eventFile string) string {
 }
 
 func (w *Watcher) handleFSEvent(event fsnotify.Event, eventFile string) bool {
-	if w.Debug {
-		w.Logger.Printf("event: %v", event)
-	}
+	w.Logger.Debug("event: %v", event)
 
 	if w.filter != nil && !w.filter.MatchString(eventFile) {
 		return false
@@ -131,7 +120,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, eventFile string) bool {
 
 	eventFileStat, err := os.Stat(eventFile)
 	if err != nil && !isRemove && !isRename {
-		w.Logger.Printf("worker: %s: %v", eventFile, err)
+		w.Logger.Log("worker: %s: %v", eventFile, err)
 		return false
 	}
 
@@ -144,9 +133,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, eventFile string) bool {
 	}
 
 	if w.executor.Running() {
-		if w.Debug {
-			w.Logger.Printf("already running, ignoring")
-		}
+		w.Logger.Debug("already running, ignoring")
 		return false
 	}
 
@@ -176,10 +163,8 @@ func (w *Watcher) eventQueueConsumer() {
 			evtDate = time.Now()
 		case <-timer.C:
 			if time.Now().Sub(evtDate) > timerInterval && len(events) > 0 {
-				if w.Debug {
-					w.Logger.Printf("sending %d events", len(events))
-					w.Logger.Printf("events: %v", events)
-				}
+				w.Logger.Debug("sending %d events", len(events))
+				w.Logger.Debug("events: %v", events)
 				executed := false
 				for _, event := range events {
 					eventFile := path.Clean(event.Name)
@@ -201,7 +186,7 @@ func (w *Watcher) Work() error {
 	w.eventQueue = make(chan fsnotify.Event)
 	go w.eventQueueConsumer()
 
-	w.Logger.Printf("running watcher \"%s\"", w.Name)
+	w.Logger.Log("running watcher \"%s\"", w.Name)
 
 	for {
 		select {
@@ -209,7 +194,7 @@ func (w *Watcher) Work() error {
 			w.eventQueue <- event
 
 		case err := <-w.FSWatcher.Errors:
-			w.Logger.Printf("watcher \"%s\" stopped: %v", w.Name, err)
+			w.Logger.Log("watcher \"%s\" stopped: %v", w.Name, err)
 			w.FSWatcher.Close()
 			return err
 		}
@@ -238,14 +223,19 @@ func NewWatcher(name, match, filter, command string, executor Executor, debug bo
 		return nil, fmt.Errorf("executor cannot be nil")
 	}
 
+	var wLogger Logger
+	wLogger = InfoLogger{Logger: logger}
+	if debug {
+		wLogger = DebugLogger{Logger: wLogger}
+	}
+
 	return &Watcher{
 		Name:      name,
 		Filter:    filter,
 		Command:   command,
 		FSWatcher: fswatcher,
 		Match:     match,
-		Logger:    logger,
-		Debug:     debug,
+		Logger:    wLogger,
 		executor:  executor,
 	}, nil
 }
