@@ -2,7 +2,6 @@ package watcher
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path"
@@ -92,14 +91,14 @@ func (w *Watcher) Find() error {
 	return nil
 }
 
-func (w *Watcher) exec(command string, output io.Writer) {
-	w.Logger.Printf("running command on watcher %s", w.Name)
+func (w *Watcher) exec(command string) {
+	w.Logger.Printf("running command on watcher \"%s\"", w.Name)
 	err := w.executor.Exec(command)
 
 	if err == nil {
-		w.Logger.Printf("finished running command on watcher %s", w.Name)
+		w.Logger.Printf("finished running command on watcher \"%s\"", w.Name)
 	} else {
-		w.Logger.Printf("finished running command on watcher %s with error: %v", w.Name, err)
+		w.Logger.Printf("finished running command on watcher \"%s\" with error: %v", w.Name, err)
 	}
 }
 
@@ -185,7 +184,7 @@ func (w *Watcher) eventQueueConsumer() {
 				for _, event := range events {
 					eventFile := path.Clean(event.Name)
 					if w.handleFSEvent(event, eventFile) && !executed {
-						w.exec(w.makeCommand(event, eventFile), os.Stdout)
+						w.exec(w.makeCommand(event, eventFile))
 						executed = true
 					}
 				}
@@ -202,7 +201,7 @@ func (w *Watcher) Work() error {
 	w.eventQueue = make(chan fsnotify.Event)
 	go w.eventQueueConsumer()
 
-	w.Logger.Printf("running watcher %v", w.Name)
+	w.Logger.Printf("running watcher \"%s\"", w.Name)
 
 	for {
 		select {
@@ -210,7 +209,7 @@ func (w *Watcher) Work() error {
 			w.eventQueue <- event
 
 		case err := <-w.FSWatcher.Errors:
-			w.Logger.Printf("watcher %s stopped: %w", err, w.Name)
+			w.Logger.Printf("watcher \"%s\" stopped: %v", w.Name, err)
 			w.FSWatcher.Close()
 			return err
 		}
