@@ -4,8 +4,7 @@ import (
 	"log"
 )
 
-// Run all watchers
-func Run(watchers []*Watcher) {
+func RunForever(watchers []*Watcher) {
 	forever := make(chan bool, 1)
 	working := 0
 

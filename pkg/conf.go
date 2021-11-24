@@ -15,22 +15,55 @@ const (
 	ExecutorRaw       = "raw"
 )
 
-// ExecutorFrom maps configuration "executor" to an instance of executor.
-func ExecutorFrom(name string) (Executor, error) {
+func ExecutorFromName(name string) (Executor, error) {
 	switch name {
 	case ExecutorRaw:
-		return NewRawExec(os.Stdout), nil
+		return NewExecutorRaw(os.Stdout), nil
 	case ExecutorStdout:
-		return NewPrintExec(os.Stdout), nil
+		return NewExecutorPrintPath(os.Stdout), nil
 	case ExecutorUnixShell:
-		return NewUnixShellExec(os.Stdout), nil
+		return NewExecutorUnixShell(os.Stdout), nil
 	default:
 		return nil, fmt.Errorf("conf: unknown executor type %s", name)
 	}
 }
 
-// WatchersFromPath returns configuration from file at path
-func WatchersFromPath(path string, logger *log.Logger) ([]*Watcher, error) {
+func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defExecutorName string) (*Watcher, error) {
+	name := section.Name()
+
+	match := section.Key("match").String()
+	if match == "" {
+		return nil, fmt.Errorf("conf: missing required 'match' key")
+	}
+
+	command := section.Key("command").MustString("")
+	if command == "" {
+		return nil, fmt.Errorf("conf: missing required 'command' key")
+	}
+
+	filter := section.Key("filter").MustString("")
+	executor, err := ExecutorFromName(section.Key("executor").MustString(defExecutorName))
+	if err != nil {
+		return nil, err
+	}
+
+	debug = section.Key("debug").MustBool(debug)
+
+	w, err := NewWatcher(
+		name,
+		match,
+		filter,
+		command,
+		executor,
+		debug,
+		logger,
+	)
+
+	return w, err
+}
+
+// WatchersFromConf returns watchers from a configuration file provided at location "path".
+func WatchersFromConf(path string, logger *log.Logger) ([]*Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, fmt.Errorf("conf: from path: %s: %w", path, err)
@@ -40,8 +73,6 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*Watcher, error) {
 	if len(cfg.Sections()) == 1 {
 		return nil, fmt.Errorf("conf: no configuration")
 	}
-
-	watchers := make([]*Watcher, 0)
 
 	defaultSection := cfg.Section(ini.DefaultSection)
 
@@ -58,65 +89,14 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*Watcher, error) {
 		defExecutorName = defaultSection.Key("executor").String()
 	}
 
+	watchers := make([]*Watcher, 0)
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
-		name := section.Name()
-		match := ""
-		command := ""
-		filter := ""
-		wdebug := debug
-		var executor Executor
-
-		if section.HasKey("match") {
-			match = section.Key("match").String()
-		} else {
-			return nil, fmt.Errorf("conf: missing required match key")
-		}
-
-		if section.HasKey("command") {
-			command = section.Key("command").String()
-		} else {
-			return nil, fmt.Errorf("conf: missing required command key: %w", err)
-		}
-
-		if section.HasKey("filter") {
-			filter = section.Key("filter").String()
-		}
-
-		if section.HasKey("executor") {
-			name := section.Key("executor").String()
-			executor, err = ExecutorFrom(name)
-		} else {
-			executor, err = ExecutorFrom(defExecutorName)
-		}
-
-		// executor error
-		if err != nil {
+		if w, err := WatcherFromConf(section, logger, debug, defExecutorName); err != nil {
 			return nil, err
+		} else {
+			watchers = append(watchers, w)
 		}
-
-		if section.HasKey("debug") {
-			wdebug, err = section.Key("debug").Bool()
-			if err != nil {
-				return nil, fmt.Errorf("conf: debug is not a bool: %w", err)
-			}
-		}
-
-		w, err := NewWatcher(
-			name,
-			match,
-			filter,
-			command,
-			executor,
-			wdebug,
-			logger,
-		)
-
-		if err != nil {
-			return nil, fmt.Errorf("conf: new watcher: %s: %w", name, err)
-		}
-
-		watchers = append(watchers, w)
 	}
 
 	return watchers, nil

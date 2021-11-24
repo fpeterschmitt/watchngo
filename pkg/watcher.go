@@ -20,10 +20,10 @@ type Watcher struct {
 	Match      string
 	Filter     string
 	FSWatcher  *fsnotify.Watcher
-	Shell    string
-	Logger   Logger
-	executor Executor
-	eLock    sync.RWMutex
+	Shell      string
+	Logger     Logger
+	executor   Executor
+	eLock      sync.RWMutex
 	filter     *regexp.Regexp
 	eventQueue chan fsnotify.Event
 }
@@ -215,11 +215,11 @@ func NewWatcher(name, match, filter, command string, executor Executor, debug bo
 	}
 
 	if logger == nil {
-		return nil, fmt.Errorf("logger cannot be nil")
+		return nil, fmt.Errorf("new watcher: logger cannot be nil")
 	}
 
 	if executor == nil {
-		return nil, fmt.Errorf("executor cannot be nil")
+		return nil, fmt.Errorf("new watcher: executor cannot be nil")
 	}
 
 	var wLogger Logger

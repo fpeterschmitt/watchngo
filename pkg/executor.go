@@ -17,9 +17,9 @@ type Executor interface {
 	Exec(params ...string) error
 }
 
-// NewPrintExec only prints to stdout the full file path that triggered an
-// event so you can pipe the output and do whatever you want with it.
-func NewPrintExec(output io.Writer) Executor {
+// NewExecutorPrintPath only prints to stdout the full file path that triggered an
+// event, so you can pipe the output and do whatever you want with it.
+func NewExecutorPrintPath(output io.Writer) Executor {
 	return &printExec{output: output}
 }
 
@@ -36,12 +36,12 @@ func (e *printExec) Exec(params ...string) error {
 	return err
 }
 
-// NewUnixShellExec returns an executor that will run your command through
+// NewExecutorUnixShell returns an executor that will run your command through
 // /bin/sh -c "<command>". Your command will be quoted before to avoid any
 // problems.
-func NewUnixShellExec(output io.Writer) Executor {
+func NewExecutorUnixShell(output io.Writer) Executor {
 	return &unixShellExec{
-		rawExec: NewRawExec(output),
+		rawExec: NewExecutorRaw(output),
 	}
 }
 
@@ -57,9 +57,9 @@ func (e *unixShellExec) Running() bool {
 	return e.rawExec.Running()
 }
 
-// NewRawExec will run your command without shell.
+// NewExecutorRaw will run your command without shell.
 // FIXME: commands with arguments are NOT supported for now.
-func NewRawExec(output io.Writer) Executor {
+func NewExecutorRaw(output io.Writer) Executor {
 	return &rawExec{output: output}
 }
 
