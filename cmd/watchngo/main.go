@@ -1,12 +1,9 @@
 package main
 
 import (
-	"github.com/Leryan/watchngo/pkg/runner"
+	"github.com/Leryan/watchngo/pkg"
 	"log"
 	"os"
-
-	"github.com/Leryan/watchngo/pkg/conf"
-	"github.com/Leryan/watchngo/pkg/watcher"
 
 	"flag"
 )
@@ -27,11 +24,11 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	if *flagCommand != "" && *flagMatch != "" {
-		executor, err := conf.ExecutorFrom(*flagExecutor)
+		executor, err := pkg.ExecutorFrom(*flagExecutor)
 		if err != nil {
 			log.Fatal(err)
 		}
-		w, err := watcher.NewWatcher(
+		w, err := pkg.NewWatcher(
 			"on the fly",
 			*flagMatch,
 			*flagFilter,
@@ -45,14 +42,14 @@ func main() {
 			log.Fatalf("error: on the fly: %v", err)
 		}
 
-		runner.Run([]*watcher.Watcher{w})
+		pkg.Run([]*pkg.Watcher{w})
 	} else {
 
-		watchers, err := conf.WatchersFromPath(*flagCfg, logger)
+		watchers, err := pkg.WatchersFromPath(*flagCfg, logger)
 		if err != nil {
 			log.Fatalf("error: WatchersFromPath: %v", err)
 		}
 
-		runner.Run(watchers)
+		pkg.Run(watchers)
 	}
 }

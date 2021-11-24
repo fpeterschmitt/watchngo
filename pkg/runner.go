@@ -1,12 +1,11 @@
-package runner
+package pkg
 
 import (
-	"github.com/Leryan/watchngo/pkg/watcher"
 	"log"
 )
 
 // Run all watchers
-func Run(watchers []*watcher.Watcher) {
+func Run(watchers []*Watcher) {
 	forever := make(chan bool, 1)
 	working := 0
 

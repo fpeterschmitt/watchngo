@@ -1,4 +1,4 @@
-package watcher
+package pkg
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Leryan/watchngo/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -21,10 +20,10 @@ type Watcher struct {
 	Match      string
 	Filter     string
 	FSWatcher  *fsnotify.Watcher
-	Shell      string
-	Logger     Logger
-	executor   Executor
-	eLock      sync.RWMutex
+	Shell    string
+	Logger   Logger
+	executor Executor
+	eLock    sync.RWMutex
 	filter     *regexp.Regexp
 	eventQueue chan fsnotify.Event
 }
@@ -33,10 +32,10 @@ type Watcher struct {
 // path (may be relative) is supported.
 func (w *Watcher) Find() error {
 	matchstat, err := os.Stat(w.Match)
-	wr := utils.NewWalkRec()
+	wr := NewWalkRec()
 
 	if err == nil && matchstat.IsDir() {
-		wr, err = utils.FindRecursive(w.Match, wr)
+		wr, err = FindRecursive(w.Match, wr)
 		if err != nil {
 			return fmt.Errorf("find: %w", err)
 		}
@@ -49,7 +48,7 @@ func (w *Watcher) Find() error {
 		w.Logger.Debug("watcher %s use single file", w.Name)
 
 	} else if err != nil {
-		wr.Matches, err = utils.FindGlob(w.Match, wr.Matches)
+		wr.Matches, err = FindGlob(w.Match, wr.Matches)
 
 		if err != nil {
 			return fmt.Errorf("glob: %w", err)

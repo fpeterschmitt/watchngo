@@ -1,11 +1,9 @@
-package conf
+package pkg
 
 import (
 	"fmt"
 	"log"
 	"os"
-
-	"github.com/Leryan/watchngo/pkg/watcher"
 
 	"github.com/go-ini/ini"
 )
@@ -18,21 +16,21 @@ const (
 )
 
 // ExecutorFrom maps configuration "executor" to an instance of executor.
-func ExecutorFrom(name string) (watcher.Executor, error) {
+func ExecutorFrom(name string) (Executor, error) {
 	switch name {
 	case ExecutorRaw:
-		return watcher.NewRawExec(os.Stdout), nil
+		return NewRawExec(os.Stdout), nil
 	case ExecutorStdout:
-		return watcher.NewPrintExec(os.Stdout), nil
+		return NewPrintExec(os.Stdout), nil
 	case ExecutorUnixShell:
-		return watcher.NewUnixShellExec(os.Stdout), nil
+		return NewUnixShellExec(os.Stdout), nil
 	default:
 		return nil, fmt.Errorf("conf: unknown executor type %s", name)
 	}
 }
 
 // WatchersFromPath returns configuration from file at path
-func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, error) {
+func WatchersFromPath(path string, logger *log.Logger) ([]*Watcher, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, fmt.Errorf("conf: from path: %s: %w", path, err)
@@ -43,7 +41,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		return nil, fmt.Errorf("conf: no configuration")
 	}
 
-	watchers := make([]*watcher.Watcher, 0)
+	watchers := make([]*Watcher, 0)
 
 	defaultSection := cfg.Section(ini.DefaultSection)
 
@@ -67,7 +65,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 		command := ""
 		filter := ""
 		wdebug := debug
-		var executor watcher.Executor
+		var executor Executor
 
 		if section.HasKey("match") {
 			match = section.Key("match").String()
@@ -104,7 +102,7 @@ func WatchersFromPath(path string, logger *log.Logger) ([]*watcher.Watcher, erro
 			}
 		}
 
-		w, err := watcher.NewWatcher(
+		w, err := NewWatcher(
 			name,
 			match,
 			filter,
