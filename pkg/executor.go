@@ -19,7 +19,7 @@ type Executor interface {
 	Exec(event NotificationEvent, eventFile string) error
 }
 
-func makeCommand(cmdTemplate string, event NotificationEvent, eventFile string) string {
+func MakeCommand(cmdTemplate string, event NotificationEvent, eventFile string) string {
 	command := strings.Replace(cmdTemplate, "%event.file", eventFile, -1)
 	command = strings.Replace(command, "%event.op", event.Notification.String(), -1)
 	return command
@@ -60,7 +60,7 @@ type unixShellExec struct {
 }
 
 func (e *unixShellExec) Exec(event NotificationEvent, eventFile string) error {
-	cmd := makeCommand(e.commandTemplate, event, eventFile)
+	cmd := MakeCommand(e.commandTemplate, event, eventFile)
 	return e.rawExec.ExecCommand([]string{"/bin/sh", "-c", cmd}...)
 }
 
@@ -140,7 +140,7 @@ func (e *rawExec) Exec(event NotificationEvent, eventFile string) error {
 	e.setExecuting(true)
 	defer e.setExecuting(false)
 
-	params := strings.SplitN(makeCommand(e.commandTemplate, event, eventFile), " ", 1)
+	params := strings.SplitN(MakeCommand(e.commandTemplate, event, eventFile), " ", 1)
 
 	return e.ExecCommand(params...)
 }
