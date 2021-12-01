@@ -49,28 +49,26 @@ type testCase struct {
 }
 
 func (t *testWatcher) TestMatchFilterLogExecute() {
-	t.finder.EXPECT().Find().Return(&pkg.FinderResults{Files: []string{"sub1/f1", "sub2/f1", "sub1/f2"}}, nil)
-
-	t.filter.EXPECT().MatchString("sub1/f1").Return(true)
-	t.notifier.EXPECT().Add("sub1/f1").Return(nil)
-
-	t.filter.EXPECT().MatchString("sub2/f1").Return(false)
-
-	t.filter.EXPECT().MatchString("sub1/f2").Return(true)
-	t.notifier.EXPECT().Add("sub1/f2").Return(nil)
+	notifications := make(chan pkg.NotificationEvent, 1)
 
 	t.logger.EXPECT().Log(gomock.Any(), gomock.Any()).AnyTimes()
 	t.logger.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
 
-	notifications := make(chan pkg.NotificationEvent)
-	t.notifier.EXPECT().Events().Return(notifications)
+	gomock.InOrder(
+		t.finder.EXPECT().Find().Return(&pkg.FinderResults{Locations: []string{"sub1/f1", "sub2/f1", "sub1/f2"}}, nil),
+		t.notifier.EXPECT().Add("sub1/f1").Return(nil),
+		t.notifier.EXPECT().Add("sub2/f1").Return(nil),
+		t.notifier.EXPECT().Add("sub1/f2").Return(nil),
+
+		t.notifier.EXPECT().Events().Return(notifications),
+
+		t.filter.EXPECT().MatchString("sub1/f1").Return(true),
+		t.executor.EXPECT().Running().Return(false),
+		t.executor.EXPECT().Exec(gomock.Any(), "sub1/f1").Times(1),
+	)
 
 	go func() { t.Require().NoError(t.watcher.Work()) }()
 	time.Sleep(time.Millisecond * 200)
-
-	t.filter.EXPECT().MatchString("sub1/f1").Return(true)
-	t.executor.EXPECT().Exec(gomock.Any(), "sub1/f1").Times(1)
-	t.executor.EXPECT().Running().Return(false)
 
 	notifications <- pkg.NotificationEvent{
 		Path:         "sub1/f1",

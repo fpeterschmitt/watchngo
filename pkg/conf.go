@@ -77,6 +77,9 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, de
 
 func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *ini.File {
 	cfg := ini.Empty()
+
+	defSec := cfg.Section(ini.DefaultSection)
+
 	section, err := cfg.NewSection(name)
 	if err != nil {
 		panic(err)
@@ -90,11 +93,11 @@ func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *in
 	}
 
 	if debug {
-		section.NewBooleanKey("debug")
+		defSec.NewKey("debug", "true")
 	}
 
 	if executor != "" {
-		section.NewKey("executor", executor)
+		defSec.NewKey("executor", executor)
 	}
 
 	return cfg

@@ -26,7 +26,7 @@ func main() {
 
 	var cfg *ini.File
 	if *flagCommand != "" && *flagMatch != "" {
-		cfg = pkg.BuildCfgFrom("direct", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug)
+		cfg = pkg.BuildCfgFrom("cli", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug)
 	} else {
 		var err error
 		if cfg, err = ini.Load(*flagCfg); err != nil {

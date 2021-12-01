@@ -109,12 +109,10 @@ func (w *Watcher) Work() error {
 		return err
 	}
 
-	for _, file := range res.Files {
-		if w.Filter.MatchString(file) {
-			w.Logger.Debug("add file %s", file)
-			if err := w.FSWatcher.Add(file); err != nil {
-				return err
-			}
+	for _, location := range res.Locations {
+		w.Logger.Debug("add location %s", location)
+		if err := w.FSWatcher.Add(location); err != nil {
+			return err
 		}
 	}
 
@@ -128,6 +126,8 @@ func (w *Watcher) Work() error {
 
 	for {
 		event := <-events
+
+		w.Logger.Debug("pre-filtering event: %v", event)
 
 		if event.Notification&NotificationError == NotificationError {
 			if event.Path == "" {
