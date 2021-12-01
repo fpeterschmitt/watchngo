@@ -63,27 +63,14 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 }
 
 // WatchersFromConf returns watchers from a configuration file provided at location "path".
-func WatchersFromConf(path string, logger *log.Logger) ([]*Watcher, error) {
-	cfg, err := ini.Load(path)
-	if err != nil {
-		return nil, fmt.Errorf("conf: from path: %s: %w", path, err)
-	}
-
+func WatchersFromConf(cfg *ini.File, logger *log.Logger) ([]*Watcher, error) {
 	// we only have the DEFAULT section
 	if len(cfg.Sections()) == 1 {
 		return nil, fmt.Errorf("conf: no configuration")
 	}
 
 	defaultSection := cfg.Section(ini.DefaultSection)
-
-	debug := false
-	if defaultSection.HasKey("debug") {
-		debug, err = defaultSection.Key("debug").Bool()
-		if err != nil {
-			return nil, fmt.Errorf("conf: debug is not a bool: %w", err)
-		}
-	}
-
+	debug := defaultSection.Key("debug").MustBool(false)
 	defExecutorName := ExecutorUnixShell
 	if defaultSection.HasKey("executor") {
 		defExecutorName = defaultSection.Key("executor").String()

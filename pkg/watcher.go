@@ -32,10 +32,10 @@ type Watcher struct {
 // path (may be relative) is supported.
 func (w *Watcher) Find() error {
 	matchstat, err := os.Stat(w.Match)
-	wr := NewWalkRec()
+	var matches []string
 
 	if err == nil && matchstat.IsDir() {
-		wr, err = FindRecursive(w.Match, wr)
+		matches, _, err = FindRecursive(w.Match)
 		if err != nil {
 			return fmt.Errorf("find: %w", err)
 		}
@@ -43,16 +43,16 @@ func (w *Watcher) Find() error {
 		w.Logger.Debug("watcher %s found recursive directories", w.Name)
 
 	} else if err == nil && !matchstat.IsDir() {
-		wr.Matches = append(wr.Matches, w.Match)
+		matches = append(matches, w.Match)
 
 		w.Logger.Debug("watcher %s use single file", w.Name)
 
 	} else if err != nil {
-		wr.Matches, err = FindGlob(w.Match, wr.Matches)
+		matches, err = FindGlob(w.Match, matches)
 
 		if err != nil {
 			return fmt.Errorf("glob: %w", err)
-		} else if len(wr.Matches) == 0 {
+		} else if len(matches) == 0 {
 			return fmt.Errorf("empty glob: %s", w.Match)
 		}
 
@@ -72,7 +72,7 @@ func (w *Watcher) Find() error {
 		w.filter = rfilter
 	}
 
-	for _, match := range wr.Matches {
+	for _, match := range matches {
 		w.Logger.Debug("add match: %s", match)
 		if err := w.FSWatcher.Add(match); err != nil {
 			return fmt.Errorf("on match: %s: %w", match, err)

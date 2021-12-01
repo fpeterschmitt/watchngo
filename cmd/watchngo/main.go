@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Leryan/watchngo/pkg"
+	"github.com/go-ini/ini"
 
 	"flag"
 )
@@ -21,8 +22,9 @@ func main() {
 	flag.Parse()
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
-
 	log.SetOutput(os.Stderr)
+
+	var watchers []*pkg.Watcher
 
 	if *flagCommand != "" && *flagMatch != "" {
 		executor, err := pkg.ExecutorFromName(*flagExecutor)
@@ -43,14 +45,18 @@ func main() {
 			log.Fatalf("error: on the fly: %v", err)
 		}
 
-		pkg.RunForever([]*pkg.Watcher{w})
+		watchers = append(watchers, w)
 	} else {
+		cfg, err := ini.Load(*flagCfg)
+		if err != nil {
+			log.Fatalf("conf: from path: %s: %v", *flagCfg, err)
+		}
 
-		watchers, err := pkg.WatchersFromConf(*flagCfg, logger)
+		watchers, err = pkg.WatchersFromConf(cfg, logger)
 		if err != nil {
 			log.Fatalf("error: WatchersFromConf: %v", err)
 		}
-
-		pkg.RunForever(watchers)
 	}
+
+	pkg.RunForever(watchers)
 }

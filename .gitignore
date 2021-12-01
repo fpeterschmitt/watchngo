@@ -2,3 +2,4 @@
 /watchngo
 /watchngo.dev
 /.idea
+/pkg/watcher_test.go-*

@@ -13,21 +13,14 @@ type WalkRec struct {
 	Exclude []string
 }
 
-func NewWalkRec() WalkRec {
-	return WalkRec{
-		Matches: make([]string, 0),
-		Exclude: make([]string, 0),
-	}
-}
-
-func (w *WalkRec) walkRecursive(file string, info os.FileInfo, err error) error {
-	if err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
-			log.Printf("skipped: %v", err)
+func (w *WalkRec) walkRecursive(file string, info os.FileInfo, walkErr error) error {
+	if walkErr != nil {
+		if strings.Contains(walkErr.Error(), "permission denied") {
+			log.Printf("skipped: %v", walkErr)
 			w.Exclude = append(w.Exclude, file)
 			return nil
 		}
-		return fmt.Errorf("walk: %s: %w", file, err)
+		return fmt.Errorf("walk: %s: %w", file, walkErr)
 	}
 
 	if info.IsDir() {
@@ -39,14 +32,17 @@ func (w *WalkRec) walkRecursive(file string, info os.FileInfo, err error) error 
 
 // FindRecursive looks for directories in the given path, that MUST be
 // a directory.
-func FindRecursive(path string, wr WalkRec) (WalkRec, error) {
-	var err error
+func FindRecursive(path string) (matches []string, excludes []string, err error) {
+	wr := WalkRec{}
 
 	if err = filepath.Walk(path, wr.walkRecursive); err != nil {
-		return wr, fmt.Errorf("walk: %s: %w", path, err)
+		return nil, nil, fmt.Errorf("walk: %s: %w", path, err)
 	}
 
-	return wr, nil
+	matches = wr.Matches
+	excludes = wr.Exclude
+
+	return
 }
 
 // FindGlob uses the given pattern that must be
