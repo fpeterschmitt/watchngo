@@ -1,12 +1,11 @@
 package main
 
 import (
-	"github.com/Leryan/watchngo/pkg/runner"
 	"log"
 	"os"
 
-	"github.com/Leryan/watchngo/pkg/conf"
-	"github.com/Leryan/watchngo/pkg/watcher"
+	"github.com/Leryan/watchngo/pkg"
+	"github.com/go-ini/ini"
 
 	"flag"
 )
@@ -17,42 +16,28 @@ func main() {
 	flagMatch := flag.String("match", "", "file or directory to watch")
 	flagFilter := flag.String("filter", "", "filter as a regex supported by golang")
 	flagCommand := flag.String("command", "", "command to run. see configuration example for supported variables")
-	flagExecutor := flag.String("executor", "unixshell", "executors: unixshell, raw, stdout")
+	flagExecutor := flag.String("executor", pkg.ExecutorUnixShell, "executors: unixshell, raw, stdout")
 	flagDebug := flag.Bool("debug", false, "debug")
 
 	flag.Parse()
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
-
 	log.SetOutput(os.Stderr)
 
+	var cfg *ini.File
 	if *flagCommand != "" && *flagMatch != "" {
-		executor, err := conf.ExecutorFrom(*flagExecutor)
-		if err != nil {
-			log.Fatal(err)
-		}
-		w, err := watcher.NewWatcher(
-			"on the fly",
-			*flagMatch,
-			*flagFilter,
-			*flagCommand,
-			executor,
-			*flagDebug,
-			logger,
-		)
-
-		if err != nil {
-			log.Fatalf("error: on the fly: %v", err)
-		}
-
-		runner.Run([]*watcher.Watcher{w})
+		cfg = pkg.BuildCfgFrom("cli", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug)
 	} else {
-
-		watchers, err := conf.WatchersFromPath(*flagCfg, logger)
-		if err != nil {
-			log.Fatalf("error: WatchersFromPath: %v", err)
+		var err error
+		if cfg, err = ini.Load(*flagCfg); err != nil {
+			log.Fatalf("conf: from path: %s: %v", *flagCfg, err)
 		}
-
-		runner.Run(watchers)
 	}
+
+	watchers, err := pkg.WatchersFromConf(cfg, logger, pkg.ExecutorFromName)
+	if err != nil {
+		log.Fatalf("error: WatchersFromConf: %v", err)
+	}
+
+	pkg.RunForever(watchers)
 }

@@ -1,4 +1,6 @@
-package watcher
+//go:generate mockgen -source=logger.go -destination=mock_logger_test.go -package=pkg_test Logger
+
+package pkg
 
 import "log"
 
