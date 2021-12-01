@@ -52,7 +52,7 @@ func main() {
 			log.Fatalf("conf: from path: %s: %v", *flagCfg, err)
 		}
 
-		watchers, err = pkg.WatchersFromConf(cfg, logger)
+		watchers, err = pkg.WatchersFromConf(cfg, logger, pkg.ExecutorFromName)
 		if err != nil {
 			log.Fatalf("error: WatchersFromConf: %v", err)
 		}

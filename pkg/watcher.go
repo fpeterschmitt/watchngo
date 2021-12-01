@@ -22,15 +22,15 @@ type Watcher struct {
 	FSWatcher  *fsnotify.Watcher
 	Shell      string
 	Logger     Logger
-	executor   Executor
+	Executor   Executor
 	eLock      sync.RWMutex
 	filter     *regexp.Regexp
 	eventQueue chan fsnotify.Event
 }
 
-// Find add files to the watcher. Currently only one file with it's exact
+// find add files to the watcher. Currently only one file with it's exact
 // path (may be relative) is supported.
-func (w *Watcher) Find() error {
+func (w *Watcher) find() error {
 	matchstat, err := os.Stat(w.Match)
 	var matches []string
 
@@ -83,7 +83,7 @@ func (w *Watcher) Find() error {
 
 func (w *Watcher) exec(command string) {
 	w.Logger.Log("running command on watcher \"%s\"", w.Name)
-	err := w.executor.Exec(command)
+	err := w.Executor.Exec(command)
 
 	if err == nil {
 		w.Logger.Log("finished running command on watcher \"%s\"", w.Name)
@@ -131,7 +131,7 @@ func (w *Watcher) handleFSEvent(event fsnotify.Event, eventFile string) bool {
 		isDir = eventFileStat.IsDir()
 	}
 
-	if w.executor.Running() {
+	if w.Executor.Running() {
 		w.Logger.Debug("already running, ignoring")
 		return false
 	}
@@ -228,13 +228,15 @@ func NewWatcher(name, match, filter, command string, executor Executor, debug bo
 		wLogger = DebugLogger{Logger: wLogger}
 	}
 
-	return &Watcher{
+	watcher := &Watcher{
 		Name:      name,
 		Filter:    filter,
 		Command:   command,
 		FSWatcher: fswatcher,
 		Match:     match,
 		Logger:    wLogger,
-		executor:  executor,
-	}, nil
+		Executor:  executor,
+	}
+
+	return watcher, watcher.find()
 }

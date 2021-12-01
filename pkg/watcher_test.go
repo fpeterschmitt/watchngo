@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,8 +58,10 @@ func setupTempFiles(t *testing.T) (string, []string) {
 
 	makefile(tempdir, "sub1", "f1")
 	makefile(tempdir, "sub1", "f2")
+	makefile(tempdir, "sub1", "ex1")
 	makefile(tempdir, "sub2", "f1")
 	makefile(tempdir, "sub2", "f2")
+	makefile(tempdir, "sub2", "ex2")
 
 	return tempdir, files
 }
@@ -90,29 +93,56 @@ func (t *testWatcher) SetupTest() {
 }
 
 func (t *testWatcher) TearDownTest() {
-	os.RemoveAll(t.tempdir)
+	t.NoError(os.RemoveAll(t.tempdir), "cleanup")
+}
+
+type testCase struct {
+	appendFile     string
+	executorRan    int
+	executorParams []string
+}
+
+func (t *testWatcher) runTestCase(testCase testCase) {
+	t.executor.reset()
+	t.append(testCase.appendFile)
+	time.Sleep(time.Millisecond * 500)
+
+	if t.Equal(testCase.executorRan, t.executor.ran) && testCase.executorRan > 0 {
+		t.Equal(testCase.executorParams, t.executor.params)
+	}
 }
 
 func (t *testWatcher) TestAllSubAllFiles() {
 	logout := bytes.Buffer{}
 	logger := log.New(&logout, "", log.LstdFlags)
-	watcher, err := pkg.NewWatcher(t.T().Name(), t.tempdir, ".*", "ls %event.file", t.executor, false, logger)
+	watcher, err := pkg.NewWatcher(t.T().Name(), t.tempdir, "f.*", "ls %event.file", t.executor, false, logger)
 	t.Require().NoError(err)
-	t.Require().NoError(watcher.Find())
 
-	go func() { t.Require().NoError(err, watcher.Work()) }()
+	go func() { t.Require().NoError(watcher.Work()) }()
 	time.Sleep(time.Millisecond * 200)
 
-	for _, f := range t.tempfiles {
-		t.Run(f, func() {
-			t.executor.reset()
+	testCases := []testCase{
+		{
+			appendFile:     t.tempfiles[0], // f1
+			executorRan:    1,
+			executorParams: []string{"ls " + t.tempfiles[0]},
+		},
+		{
+			appendFile:  t.tempfiles[2], // ex1
+			executorRan: 0,
+		},
+	}
 
-			t.append(f)
-			time.Sleep(time.Millisecond * 500)
-			t.Equal(1, t.executor.ran)
-			if t.Len(t.executor.params, 1) {
-				t.Equal("ls "+f, t.executor.params[0])
-			}
+	for _, tc := range testCases {
+		t.Run(tc.appendFile, func() {
+			t.runTestCase(tc)
 		})
 	}
+
+	t.Run("logs", func() {
+		t.Len(strings.Split(logout.String(), "\n"), 4)
+		t.Contains(logout.String(), "running watcher")
+		t.Contains(logout.String(), "running command on watcher")
+		t.Contains(logout.String(), "finished running command on watcher")
+	})
 }

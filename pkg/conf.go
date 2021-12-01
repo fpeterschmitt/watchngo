@@ -15,6 +15,8 @@ const (
 	ExecutorRaw       = "raw"
 )
 
+type ExecutorProvider func(name string) (Executor, error)
+
 func ExecutorFromName(name string) (Executor, error) {
 	switch name {
 	case ExecutorRaw:
@@ -28,7 +30,7 @@ func ExecutorFromName(name string) (Executor, error) {
 	}
 }
 
-func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defExecutorName string) (*Watcher, error) {
+func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defExecutorName string, prov ExecutorProvider) (*Watcher, error) {
 	name := section.Name()
 
 	match := section.Key("match").String()
@@ -42,7 +44,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 	}
 
 	filter := section.Key("filter").MustString("")
-	executor, err := ExecutorFromName(section.Key("executor").MustString(defExecutorName))
+	executor, err := prov(section.Key("executor").MustString(defExecutorName))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +65,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 }
 
 // WatchersFromConf returns watchers from a configuration file provided at location "path".
-func WatchersFromConf(cfg *ini.File, logger *log.Logger) ([]*Watcher, error) {
+func WatchersFromConf(cfg *ini.File, logger *log.Logger, prov ExecutorProvider) ([]*Watcher, error) {
 	// we only have the DEFAULT section
 	if len(cfg.Sections()) == 1 {
 		return nil, fmt.Errorf("conf: no configuration")
@@ -79,7 +81,7 @@ func WatchersFromConf(cfg *ini.File, logger *log.Logger) ([]*Watcher, error) {
 	watchers := make([]*Watcher, 0)
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
-		if w, err := WatcherFromConf(section, logger, debug, defExecutorName); err != nil {
+		if w, err := WatcherFromConf(section, logger, debug, defExecutorName, prov); err != nil {
 			return nil, err
 		} else {
 			watchers = append(watchers, w)
