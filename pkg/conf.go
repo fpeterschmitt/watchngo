@@ -93,6 +93,10 @@ func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *in
 		section.NewBooleanKey("debug")
 	}
 
+	if executor != "" {
+		section.NewKey("executor", executor)
+	}
+
 	return cfg
 }
 
