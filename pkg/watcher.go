@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"fmt"
-	"regexp"
 	"sync"
 	"time"
 )
@@ -10,12 +9,12 @@ import (
 // Watcher ...
 type Watcher struct {
 	Name       string
+	Finder     Finder
 	Filter     Filter
 	Logger     Logger
 	Executor   Executor
 	FSWatcher  Notifier
 	eLock      sync.RWMutex
-	filter     *regexp.Regexp
 	eventQueue chan NotificationEvent
 }
 
@@ -33,11 +32,11 @@ func (w *Watcher) exec(event NotificationEvent, eventFile string) {
 func (w *Watcher) handleFSEvent(event NotificationEvent, eventFile string) bool {
 	w.Logger.Debug("event: %v", event)
 
-	if w.filter != nil && !w.filter.MatchString(eventFile) {
+	if eventFile == "" {
 		return false
 	}
 
-	if eventFile == "" {
+	if !w.Filter.Match(eventFile) {
 		return false
 	}
 
@@ -105,9 +104,22 @@ func (w *Watcher) eventQueueConsumer() {
 
 // Work fires the watcher and run commands when an event is received.
 func (w *Watcher) Work() error {
+	res, err := w.Finder.Find()
+	if err != nil {
+		return err
+	}
+
+	for _, file := range res.Files {
+		if w.Filter.Match(file) {
+			if err := w.FSWatcher.Add(file); err != nil {
+				return err
+			}
+		}
+	}
+
+	go w.eventQueueConsumer()
 	defer w.FSWatcher.Close()
 	defer func() { close(w.eventQueue) }()
-	go w.eventQueueConsumer()
 
 	w.Logger.Log("running watcher \"%s\"", w.Name)
 
@@ -154,20 +166,8 @@ func NewWatcher(name string, finder Finder, filter Filter, notifier Notifier, ex
 		Logger:     logger,
 		Executor:   executor,
 		Filter:     filter,
+		Finder:     finder,
 		eventQueue: make(chan NotificationEvent),
-	}
-
-	res, err := finder.Find()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range res.Files {
-		if watcher.Filter.Match(file) {
-			if err := watcher.FSWatcher.Add(file); err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	return watcher, nil

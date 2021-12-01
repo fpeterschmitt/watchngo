@@ -1,4 +1,5 @@
 //go:generate stringer -type=Notification -trimprefix=Notification
+//go:generate mockgen -source=notifier.go -destination=mock_notifier_test.go -package=pkg_test Notifier
 
 package pkg
 

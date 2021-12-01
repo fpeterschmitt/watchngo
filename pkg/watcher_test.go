@@ -1,64 +1,24 @@
 package pkg_test
 
 import (
-	"bytes"
-	"log"
 	"testing"
 	"time"
+
+	"github.com/golang/mock/gomock"
 
 	"github.com/Leryan/watchngo/pkg"
 	"github.com/stretchr/testify/suite"
 )
 
-type mockExecutor struct {
-	running bool
-	params  []struct {
-		Event pkg.NotificationEvent
-		File  string
-	}
-}
-
-func (m *mockExecutor) Running() bool {
-	return m.running
-}
-
-func (m *mockExecutor) Exec(event pkg.NotificationEvent, eventFile string) error {
-	m.params = append(m.params, struct {
-		Event pkg.NotificationEvent
-		File  string
-	}{Event: event, File: eventFile})
-	return nil
-}
-
-func (m *mockExecutor) reset() {
-	m.params = nil
-}
-
-type mockNotifier struct {
-	events chan pkg.NotificationEvent
-}
-
-func (m *mockNotifier) Events() <-chan pkg.NotificationEvent {
-	return m.events
-}
-
-func (m *mockNotifier) Add(file string) error {
-	return nil
-}
-
-func (m *mockNotifier) Remove(file string) error {
-	return nil
-}
-
-func (m *mockNotifier) Close() error {
-	close(m.events)
-	return nil
-}
-
 type testWatcher struct {
 	suite.Suite
-	executor *mockExecutor
-	notifier *mockNotifier
+	ctrl     *gomock.Controller
+	finder   *MockFinder
+	filter   *MockFilter
+	notifier *MockNotifier
+	executor *MockExecutor
+	logger   *MockLogger
+	watcher  *pkg.Watcher
 }
 
 func TestWatcher(t *testing.T) {
@@ -66,7 +26,20 @@ func TestWatcher(t *testing.T) {
 }
 
 func (t *testWatcher) SetupTest() {
-	t.executor = &mockExecutor{}
+	t.ctrl = gomock.NewController(t.T())
+	t.finder = NewMockFinder(t.ctrl)
+	t.filter = NewMockFilter(t.ctrl)
+	t.notifier = NewMockNotifier(t.ctrl)
+	t.executor = NewMockExecutor(t.ctrl)
+	t.logger = NewMockLogger(t.ctrl)
+
+	var err error
+	t.watcher, err = pkg.NewWatcher(t.T().Name(), t.finder, t.filter, t.notifier, t.executor, t.logger)
+	t.Require().NoError(err, "init watcher")
+}
+
+func (t *testWatcher) TearDownTest() {
+	t.ctrl.Finish()
 }
 
 type testCase struct {
@@ -75,17 +48,36 @@ type testCase struct {
 	executorParams []string
 }
 
-func (t *testWatcher) TestAllSubAllFiles() {
-	logout := bytes.Buffer{}
-	logger := pkg.InfoLogger{Logger: log.New(&logout, "", log.LstdFlags)}
+func (t *testWatcher) TestMatchFilterLogExecute() {
+	t.finder.EXPECT().Find().Return(&pkg.FinderResults{Files: []string{"sub1/f1", "sub2/f1", "sub1/f2"}}, nil)
 
-	var finder pkg.Finder
-	var notifier pkg.Notifier
-	var filter pkg.FilterRegexp
+	t.filter.EXPECT().Match("sub1/f1").Return(true)
+	t.notifier.EXPECT().Add("sub1/f1").Return(nil)
 
-	watcher, err := pkg.NewWatcher(t.T().Name(), finder, filter, notifier, t.executor, logger)
-	t.Require().NoError(err)
+	t.filter.EXPECT().Match("sub2/f1").Return(false)
 
-	go func() { t.Require().NoError(watcher.Work()) }()
+	t.filter.EXPECT().Match("sub1/f2").Return(true)
+	t.notifier.EXPECT().Add("sub1/f2").Return(nil)
+
+	t.logger.EXPECT().Log(gomock.Any(), gomock.Any()).AnyTimes()
+	t.logger.EXPECT().Debug(gomock.Any(), gomock.Any()).AnyTimes()
+
+	notifications := make(chan pkg.NotificationEvent)
+	t.notifier.EXPECT().Events().Return(notifications)
+
+	go func() { t.Require().NoError(t.watcher.Work()) }()
 	time.Sleep(time.Millisecond * 200)
+
+	t.filter.EXPECT().Match("sub1/f1").Return(true)
+	t.executor.EXPECT().Exec(gomock.Any(), "sub1/f1").Times(1)
+	t.executor.EXPECT().Running().Return(false)
+
+	notifications <- pkg.NotificationEvent{
+		Path:         "sub1/f1",
+		Notification: pkg.NotificationWrite,
+		FileType:     pkg.FileTypeFile,
+		Error:        nil,
+	}
+
+	time.Sleep(time.Millisecond * 500)
 }
