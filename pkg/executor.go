@@ -19,6 +19,9 @@ type Executor interface {
 	Exec(event NotificationEvent, eventFile string) error
 }
 
+// MakeCommand based on a template. See Notification for available strings.
+// %event.file is replaced with the full path of a file that triggered the run.
+// %event.op is replace with one of the supported operation found in Notification type.
 func MakeCommand(cmdTemplate string, event NotificationEvent, eventFile string) string {
 	command := strings.Replace(cmdTemplate, "%event.file", eventFile, -1)
 	command = strings.Replace(command, "%event.op", event.Notification.String(), -1)
@@ -68,8 +71,7 @@ func (e *unixShellExec) Running() bool {
 	return e.rawExec.Running()
 }
 
-// NewExecutorRaw will run your command without shell.
-// FIXME: commands with arguments are NOT supported for now.
+// NewExecutorRaw will run your command without shell. Used by the UnixShell executor.
 func NewExecutorRaw(output io.Writer, commandTemplate string) Executor {
 	return &rawExec{output: output, commandTemplate: commandTemplate}
 }

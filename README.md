@@ -25,10 +25,10 @@ See [watchngo.sample.ini](watchngo.sample.ini) configuration example.
 
 Checkout the [releases](https://github.com/Leryan/watchngo/releases) binaries and put it somewhere in your `$PATH`.
 
-Quick win with the latest release:
+Quick win with the latest release (Linux amd64 only):
 
 ```
-sudo curl https://github.com/Leryan/watchngo/releases/download/v1.3.1/watchngo -Lo /usr/local/bin/watchngo
+sudo curl https://github.com/Leryan/watchngo/releases/download/v2.0.0/watchngo -Lo /usr/local/bin/watchngo
 sudo chmod 755 /usr/local/bin/watchngo
 ```
 

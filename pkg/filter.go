@@ -3,5 +3,6 @@
 package pkg
 
 type Filter interface {
+	// MatchString is implemented by regexp.Regexp, so you can use that directly.
 	MatchString(file string) bool
 }
