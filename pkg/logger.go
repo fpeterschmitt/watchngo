@@ -9,6 +9,12 @@ type Logger interface {
 	Log(fmt string, args ...interface{})
 }
 
+type SilentLogger struct{}
+
+func (s SilentLogger) Debug(fmt string, args ...interface{}) {}
+
+func (s SilentLogger) Log(fmt string, args ...interface{}) {}
+
 type DebugLogger struct{ Logger Logger }
 
 func (d DebugLogger) Debug(fmt string, args ...interface{}) {

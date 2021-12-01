@@ -9,7 +9,7 @@
 ## Usage
 
 ```
-watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <filter>] [-debug] [-output unixshell|raw|stdout]]
+watchngo [-conf watchngo.ini] [-command <your command> -match <match> [-filter <filter>] [-debug] [-output unixshell|raw|stdout] -silent]
 ```
 
 The configuration file is used only when `-command` and `-filter` parameter are in use.

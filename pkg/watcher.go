@@ -13,7 +13,7 @@ type Watcher struct {
 	Filter     Filter
 	Logger     Logger
 	Executor   Executor
-	FSWatcher  Notifier
+	Notifier   Notifier
 	eLock      sync.RWMutex
 	eventQueue chan NotificationEvent
 }
@@ -63,7 +63,7 @@ func (w *Watcher) handleFSEvent(event NotificationEvent, eventFile string) bool 
 	if (isWrite || isChmod || isCreate) && isFile {
 		mustExec = true
 	} else if isRemove || isRename {
-		_ = w.FSWatcher.Remove(eventFile)
+		_ = w.Notifier.Remove(eventFile)
 		mustExec = true
 	} else if isDir {
 		mustExec = true
@@ -111,18 +111,18 @@ func (w *Watcher) Work() error {
 
 	for _, location := range res.Locations {
 		w.Logger.Debug("add location %s", location)
-		if err := w.FSWatcher.Add(location); err != nil {
+		if err := w.Notifier.Add(location); err != nil {
 			return err
 		}
 	}
 
 	go w.eventQueueConsumer()
-	defer w.FSWatcher.Close()
+	defer w.Notifier.Close()
 	defer func() { close(w.eventQueue) }()
 
 	w.Logger.Log("running watcher \"%s\"", w.Name)
 
-	events := w.FSWatcher.Events()
+	events := w.Notifier.Events()
 
 	for {
 		event := <-events
@@ -131,7 +131,7 @@ func (w *Watcher) Work() error {
 
 		if event.Notification&NotificationError == NotificationError {
 			if event.Path == "" {
-				w.Logger.Log("watcher \"%s\" stopped: %v -> closed: %v", w.Name, event.Error, w.FSWatcher.Close())
+				w.Logger.Log("watcher \"%s\" stopped: %v -> closed: %v", w.Name, event.Error, w.Notifier.Close())
 				return event.Error
 			}
 		} else {
@@ -163,7 +163,7 @@ func NewWatcher(name string, finder Finder, filter Filter, notifier Notifier, ex
 
 	watcher := &Watcher{
 		Name:       name,
-		FSWatcher:  notifier,
+		Notifier:   notifier,
 		Logger:     logger,
 		Executor:   executor,
 		Filter:     filter,

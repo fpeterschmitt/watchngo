@@ -31,7 +31,7 @@ func ExecutorFromName(name, commandTemplate string) (Executor, error) {
 	}
 }
 
-func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, defExecutorName string, prov ExecutorProvider) (*Watcher, error) {
+func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug, defSilent bool, defExecutorName string, prov ExecutorProvider) (*Watcher, error) {
 	name := section.Name()
 
 	match := section.Key("match").String()
@@ -52,6 +52,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, de
 	}
 
 	debug := section.Key("debug").MustBool(defDebug)
+	silent := section.Key("silent").MustBool(defSilent)
 
 	finder := LocalFinder{Match: match}
 
@@ -61,6 +62,10 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, de
 	wLogger = InfoLogger{Logger: logger}
 	if debug {
 		wLogger = DebugLogger{Logger: wLogger}
+	}
+
+	if silent {
+		wLogger = SilentLogger{}
 	}
 
 	w, err := NewWatcher(
@@ -75,7 +80,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, de
 	return w, err
 }
 
-func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *ini.File {
+func BuildCfgFrom(name, match, filter, command, executor string, debug, silent bool) *ini.File {
 	cfg := ini.Empty()
 
 	defSec := cfg.Section(ini.DefaultSection)
@@ -92,8 +97,12 @@ func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *in
 		section.NewKey("filter", filter)
 	}
 
-	if debug {
+	if debug && !silent {
 		defSec.NewKey("debug", "true")
+	}
+
+	if silent {
+		defSec.NewKey("silent", "true")
 	}
 
 	if executor != "" {
@@ -113,11 +122,12 @@ func WatchersFromConf(cfg *ini.File, logger *log.Logger, prov ExecutorProvider) 
 	defaultSection := cfg.Section(ini.DefaultSection)
 	defDebug := defaultSection.Key("debug").MustBool(false)
 	defExecutorName := defaultSection.Key("executor").MustString(ExecutorUnixShell)
+	defSilent := defaultSection.Key("silent").MustBool(false)
 
 	watchers := make([]*Watcher, 0)
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
-		if w, err := WatcherFromConf(section, logger, defDebug, defExecutorName, prov); err != nil {
+		if w, err := WatcherFromConf(section, logger, defDebug, defSilent, defExecutorName, prov); err != nil {
 			return nil, err
 		} else {
 			watchers = append(watchers, w)

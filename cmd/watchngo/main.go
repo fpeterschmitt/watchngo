@@ -18,6 +18,7 @@ func main() {
 	flagCommand := flag.String("command", "", "command to run. see configuration example for supported variables")
 	flagExecutor := flag.String("executor", pkg.ExecutorUnixShell, "executors: unixshell, raw, stdout")
 	flagDebug := flag.Bool("debug", false, "debug")
+	flagSilent := flag.Bool("silent", false, "silence any output originating from watchngo. overrides -debug.")
 
 	flag.Parse()
 
@@ -26,7 +27,7 @@ func main() {
 
 	var cfg *ini.File
 	if *flagCommand != "" && *flagMatch != "" {
-		cfg = pkg.BuildCfgFrom("cli", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug)
+		cfg = pkg.BuildCfgFrom("cli", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug, *flagSilent)
 	} else {
 		var err error
 		if cfg, err = ini.Load(*flagCfg); err != nil {
