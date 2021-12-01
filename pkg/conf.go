@@ -57,6 +57,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 		filter,
 		command,
 		executor,
+		NewFSNotifyNotifier(),
 		debug,
 		logger,
 	)

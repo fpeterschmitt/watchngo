@@ -37,6 +37,7 @@ func main() {
 			*flagFilter,
 			*flagCommand,
 			executor,
+			pkg.NewFSNotifyNotifier(),
 			*flagDebug,
 			logger,
 		)

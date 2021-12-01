@@ -115,7 +115,7 @@ func (t *testWatcher) runTestCase(testCase testCase) {
 func (t *testWatcher) TestAllSubAllFiles() {
 	logout := bytes.Buffer{}
 	logger := log.New(&logout, "", log.LstdFlags)
-	watcher, err := pkg.NewWatcher(t.T().Name(), t.tempdir, "f.*", "ls %event.file", t.executor, false, logger)
+	watcher, err := pkg.NewWatcher(t.T().Name(), t.tempdir, "f.*", "ls %event.file", t.executor, pkg.NewFSNotifyNotifier(), false, logger)
 	t.Require().NoError(err)
 
 	go func() { t.Require().NoError(watcher.Work()) }()
