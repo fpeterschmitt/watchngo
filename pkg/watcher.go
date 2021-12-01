@@ -16,7 +16,6 @@ type Watcher struct {
 	Command    string
 	Match      string
 	Filter     string
-	Shell      string
 	Logger     Logger
 	Executor   Executor
 	FSWatcher  Notifier
