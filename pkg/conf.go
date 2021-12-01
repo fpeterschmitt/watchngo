@@ -31,7 +31,7 @@ func ExecutorFromName(name, commandTemplate string) (Executor, error) {
 	}
 }
 
-func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defExecutorName string, prov ExecutorProvider) (*Watcher, error) {
+func WatcherFromConf(section *ini.Section, logger *log.Logger, defDebug bool, defExecutorName string, prov ExecutorProvider) (*Watcher, error) {
 	name := section.Name()
 
 	match := section.Key("match").String()
@@ -51,7 +51,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 		return nil, err
 	}
 
-	debug = section.Key("debug").MustBool(debug)
+	debug := section.Key("debug").MustBool(defDebug)
 
 	finder := LocalFinder{Match: match}
 
@@ -108,16 +108,13 @@ func WatchersFromConf(cfg *ini.File, logger *log.Logger, prov ExecutorProvider) 
 	}
 
 	defaultSection := cfg.Section(ini.DefaultSection)
-	debug := defaultSection.Key("debug").MustBool(false)
-	defExecutorName := ExecutorUnixShell
-	if defaultSection.HasKey("executor") {
-		defExecutorName = defaultSection.Key("executor").String()
-	}
+	defDebug := defaultSection.Key("debug").MustBool(false)
+	defExecutorName := defaultSection.Key("executor").MustString(ExecutorUnixShell)
 
 	watchers := make([]*Watcher, 0)
 	// exclude the DEFAULT section, which comes first
 	for _, section := range cfg.Sections()[1:] {
-		if w, err := WatcherFromConf(section, logger, debug, defExecutorName, prov); err != nil {
+		if w, err := WatcherFromConf(section, logger, defDebug, defExecutorName, prov); err != nil {
 			return nil, err
 		} else {
 			watchers = append(watchers, w)
