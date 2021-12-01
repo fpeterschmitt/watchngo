@@ -1,3 +1,5 @@
+//go:generate mockgen -source=executor.go -destination=mock_executor_test.go -package=pkg_test Executor
+
 package pkg
 
 import (
@@ -14,7 +16,13 @@ type Executor interface {
 	// Running must return true when the command is still running.
 	Running() bool
 	// Exec takes command program with first param, then arguments.
-	Exec(params ...string) error
+	Exec(event NotificationEvent, eventFile string) error
+}
+
+func makeCommand(cmdTemplate string, event NotificationEvent, eventFile string) string {
+	command := strings.Replace(cmdTemplate, "%event.file", eventFile, -1)
+	command = strings.Replace(command, "%event.op", event.Notification.String(), -1)
+	return command
 }
 
 // NewExecutorPrintPath only prints to stdout the full file path that triggered an
@@ -31,26 +39,29 @@ func (e *printExec) Running() bool {
 	return false
 }
 
-func (e *printExec) Exec(params ...string) error {
-	_, err := e.output.Write([]byte(strings.Join(params, " ") + "\n"))
+func (e *printExec) Exec(event NotificationEvent, eventFile string) error {
+	_, err := e.output.Write([]byte(eventFile + "\n"))
 	return err
 }
 
 // NewExecutorUnixShell returns an executor that will run your command through
 // /bin/sh -c "<command>". Your command will be quoted before to avoid any
 // problems.
-func NewExecutorUnixShell(output io.Writer) Executor {
+func NewExecutorUnixShell(output io.Writer, commandTemplate string) Executor {
 	return &unixShellExec{
-		rawExec: NewExecutorRaw(output),
+		rawExec:         NewExecutorRaw(output, "").(*rawExec),
+		commandTemplate: commandTemplate,
 	}
 }
 
 type unixShellExec struct {
-	rawExec Executor
+	rawExec         *rawExec
+	commandTemplate string
 }
 
-func (e *unixShellExec) Exec(params ...string) error {
-	return e.rawExec.Exec(append([]string{"/bin/sh", "-c"}, params...)...)
+func (e *unixShellExec) Exec(event NotificationEvent, eventFile string) error {
+	cmd := makeCommand(e.commandTemplate, event, eventFile)
+	return e.rawExec.ExecCommand([]string{"/bin/sh", "-c", cmd}...)
 }
 
 func (e *unixShellExec) Running() bool {
@@ -59,14 +70,15 @@ func (e *unixShellExec) Running() bool {
 
 // NewExecutorRaw will run your command without shell.
 // FIXME: commands with arguments are NOT supported for now.
-func NewExecutorRaw(output io.Writer) Executor {
-	return &rawExec{output: output}
+func NewExecutorRaw(output io.Writer, commandTemplate string) Executor {
+	return &rawExec{output: output, commandTemplate: commandTemplate}
 }
 
 type rawExec struct {
-	lock      sync.RWMutex
-	executing bool
-	output    io.Writer
+	commandTemplate string
+	lock            sync.RWMutex
+	executing       bool
+	output          io.Writer
 }
 
 func (e *rawExec) setExecuting(on bool) {
@@ -81,10 +93,7 @@ func (e *rawExec) Running() bool {
 	return e.executing
 }
 
-func (e *rawExec) Exec(params ...string) error {
-	e.setExecuting(true)
-	defer e.setExecuting(false)
-
+func (e *rawExec) ExecCommand(params ...string) error {
 	rp, wp := io.Pipe()
 	var cmd *exec.Cmd
 	var execError error
@@ -125,4 +134,13 @@ func (e *rawExec) Exec(params ...string) error {
 	<-execFinished
 
 	return execError
+}
+
+func (e *rawExec) Exec(event NotificationEvent, eventFile string) error {
+	e.setExecuting(true)
+	defer e.setExecuting(false)
+
+	params := strings.SplitN(makeCommand(e.commandTemplate, event, eventFile), " ", 1)
+
+	return e.ExecCommand(params...)
 }

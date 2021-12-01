@@ -15,16 +15,16 @@ const (
 	ExecutorRaw       = "raw"
 )
 
-type ExecutorProvider func(name string) (Executor, error)
+type ExecutorProvider func(name, commandTemplate string) (Executor, error)
 
-func ExecutorFromName(name string) (Executor, error) {
+func ExecutorFromName(name, commandTemplate string) (Executor, error) {
 	switch name {
 	case ExecutorRaw:
-		return NewExecutorRaw(os.Stdout), nil
+		return NewExecutorRaw(os.Stdout, commandTemplate), nil
 	case ExecutorStdout:
 		return NewExecutorPrintPath(os.Stdout), nil
 	case ExecutorUnixShell:
-		return NewExecutorUnixShell(os.Stdout), nil
+		return NewExecutorUnixShell(os.Stdout, commandTemplate), nil
 	default:
 		return nil, fmt.Errorf("conf: unknown executor type %s", name)
 	}
@@ -43,26 +43,52 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 		return nil, fmt.Errorf("conf: missing required 'command' key")
 	}
 
-	filter := section.Key("filter").MustString("")
-	executor, err := prov(section.Key("executor").MustString(defExecutorName))
+	filter := NewFilterRegexp(section.Key("filter").MustString(".*"))
+
+	executor, err := prov(section.Key("executor").MustString(defExecutorName), command)
 	if err != nil {
 		return nil, err
 	}
 
 	debug = section.Key("debug").MustBool(debug)
 
+	finder := LocalFinder{Match: match}
+
+	notifier := NewFSNotifyNotifier()
+
+	var wLogger Logger
+	wLogger = InfoLogger{Logger: logger}
+	if debug {
+		wLogger = DebugLogger{Logger: wLogger}
+	}
+
 	w, err := NewWatcher(
 		name,
-		match,
+		finder,
 		filter,
-		command,
+		notifier,
 		executor,
-		NewFSNotifyNotifier(),
-		debug,
-		logger,
+		wLogger,
 	)
 
 	return w, err
+}
+
+func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *ini.File {
+	cfg := ini.Empty()
+	section, err := cfg.NewSection(name)
+	if err != nil {
+		panic(err)
+	}
+
+	section.NewKey("match", match)
+	section.NewKey("command", command)
+
+	if filter != "" {
+		section.NewKey("filter", filter)
+	}
+
+	return cfg
 }
 
 // WatchersFromConf returns watchers from a configuration file provided at location "path".

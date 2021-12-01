@@ -24,39 +24,19 @@ func main() {
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	log.SetOutput(os.Stderr)
 
-	var watchers []*pkg.Watcher
-
+	var cfg *ini.File
 	if *flagCommand != "" && *flagMatch != "" {
-		executor, err := pkg.ExecutorFromName(*flagExecutor)
-		if err != nil {
-			log.Fatal(err)
-		}
-		w, err := pkg.NewWatcher(
-			"on the fly",
-			*flagMatch,
-			*flagFilter,
-			*flagCommand,
-			executor,
-			pkg.NewFSNotifyNotifier(),
-			*flagDebug,
-			logger,
-		)
-
-		if err != nil {
-			log.Fatalf("error: on the fly: %v", err)
-		}
-
-		watchers = append(watchers, w)
+		cfg = pkg.BuildCfgFrom("direct", *flagMatch, *flagFilter, *flagCommand, *flagExecutor, *flagDebug)
 	} else {
-		cfg, err := ini.Load(*flagCfg)
-		if err != nil {
+		var err error
+		if cfg, err = ini.Load(*flagCfg); err != nil {
 			log.Fatalf("conf: from path: %s: %v", *flagCfg, err)
 		}
+	}
 
-		watchers, err = pkg.WatchersFromConf(cfg, logger, pkg.ExecutorFromName)
-		if err != nil {
-			log.Fatalf("error: WatchersFromConf: %v", err)
-		}
+	watchers, err := pkg.WatchersFromConf(cfg, logger, pkg.ExecutorFromName)
+	if err != nil {
+		log.Fatalf("error: WatchersFromConf: %v", err)
 	}
 
 	pkg.RunForever(watchers)
