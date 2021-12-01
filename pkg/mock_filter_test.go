@@ -33,16 +33,16 @@ func (m *MockFilter) EXPECT() *MockFilterMockRecorder {
 	return m.recorder
 }
 
-// Match mocks base method.
-func (m *MockFilter) Match(file string) bool {
+// MatchString mocks base method.
+func (m *MockFilter) MatchString(file string) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Match", file)
+	ret := m.ctrl.Call(m, "MatchString", file)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// Match indicates an expected call of Match.
-func (mr *MockFilterMockRecorder) Match(file interface{}) *gomock.Call {
+// MatchString indicates an expected call of MatchString.
+func (mr *MockFilterMockRecorder) MatchString(file interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Match", reflect.TypeOf((*MockFilter)(nil).Match), file)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchString", reflect.TypeOf((*MockFilter)(nil).MatchString), file)
 }

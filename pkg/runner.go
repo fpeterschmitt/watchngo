@@ -6,7 +6,7 @@ import (
 )
 
 func RunForever(watchers []*Watcher) {
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 
 	for _, watcher := range watchers {
 		wg.Add(1)

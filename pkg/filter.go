@@ -2,20 +2,6 @@
 
 package pkg
 
-import "regexp"
-
 type Filter interface {
-	Match(file string) bool
-}
-
-type FilterRegexp struct {
-	re *regexp.Regexp
-}
-
-func (f FilterRegexp) Match(file string) bool {
-	return f.re.MatchString(file)
-}
-
-func NewFilterRegexp(re string) FilterRegexp {
-	return FilterRegexp{re: regexp.MustCompile(re)}
+	MatchString(file string) bool
 }

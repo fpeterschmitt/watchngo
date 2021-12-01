@@ -36,7 +36,7 @@ func (w *Watcher) handleFSEvent(event NotificationEvent, eventFile string) bool 
 		return false
 	}
 
-	if !w.Filter.Match(eventFile) {
+	if !w.Filter.MatchString(eventFile) {
 		return false
 	}
 
@@ -110,7 +110,8 @@ func (w *Watcher) Work() error {
 	}
 
 	for _, file := range res.Files {
-		if w.Filter.Match(file) {
+		if w.Filter.MatchString(file) {
+			w.Logger.Debug("add file %s", file)
 			if err := w.FSWatcher.Add(file); err != nil {
 				return err
 			}

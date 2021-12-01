@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 
 	"github.com/go-ini/ini"
 )
@@ -43,7 +44,7 @@ func WatcherFromConf(section *ini.Section, logger *log.Logger, debug bool, defEx
 		return nil, fmt.Errorf("conf: missing required 'command' key")
 	}
 
-	filter := NewFilterRegexp(section.Key("filter").MustString(".*"))
+	filter := regexp.MustCompile(section.Key("filter").MustString(".*"))
 
 	executor, err := prov(section.Key("executor").MustString(defExecutorName), command)
 	if err != nil {
@@ -86,6 +87,10 @@ func BuildCfgFrom(name, match, filter, command, executor string, debug bool) *in
 
 	if filter != "" {
 		section.NewKey("filter", filter)
+	}
+
+	if debug {
+		section.NewBooleanKey("debug")
 	}
 
 	return cfg
