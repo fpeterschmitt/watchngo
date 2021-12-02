@@ -38,8 +38,8 @@ type NotificationEvent struct {
 type Notifier interface {
 	// Events should not be called more than once, and the returned channel is to be reused.
 	Events() <-chan NotificationEvent
-	Add(file string) error
-	Remove(file string) error
+	Add(location string) error
+	Remove(location string) error
 	Close() error
 }
 
@@ -73,8 +73,10 @@ func (f fsnotifyNotifier) handleEvent(event fsnotify.Event) NotificationEvent {
 		if fi.IsDir() {
 			ft = FileTypeDir
 		}
-	} else {
+	} else if n&(NotificationRename|NotificationRemove) == 0 {
 		n |= NotificationError
+	} else {
+		err = nil
 	}
 
 	return NotificationEvent{
@@ -107,12 +109,12 @@ func (f fsnotifyNotifier) Events() <-chan NotificationEvent {
 	return out
 }
 
-func (f fsnotifyNotifier) Add(file string) error {
-	return f.FSWatcher.Add(file)
+func (f fsnotifyNotifier) Add(location string) error {
+	return f.FSWatcher.Add(location)
 }
 
-func (f fsnotifyNotifier) Remove(file string) error {
-	return f.FSWatcher.Remove(file)
+func (f fsnotifyNotifier) Remove(location string) error {
+	return f.FSWatcher.Remove(location)
 }
 
 func (f fsnotifyNotifier) Close() error {
