@@ -96,6 +96,9 @@ func (e *rawExec) Running() bool {
 }
 
 func (e *rawExec) ExecCommand(params ...string) error {
+	e.setExecuting(true)
+	defer e.setExecuting(false)
+
 	rp, wp := io.Pipe()
 	var cmd *exec.Cmd
 	var execError error
@@ -139,9 +142,6 @@ func (e *rawExec) ExecCommand(params ...string) error {
 }
 
 func (e *rawExec) Exec(event NotificationEvent, eventFile string) error {
-	e.setExecuting(true)
-	defer e.setExecuting(false)
-
 	params := strings.SplitN(MakeCommand(e.commandTemplate, event, eventFile), " ", 1)
 
 	return e.ExecCommand(params...)
