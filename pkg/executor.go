@@ -4,8 +4,10 @@ package pkg
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -51,6 +53,10 @@ func (e *printExec) Exec(event NotificationEvent, eventFile string) error {
 // /bin/sh -c "<command>". Your command will be quoted before to avoid any
 // problems.
 func NewExecutorUnixShell(output io.Writer, commandTemplate string) Executor {
+	if _, err := os.Stat("/bin/sh"); err != nil {
+		panic(fmt.Errorf("cannot use UnixShell executor: %v", err))
+	}
+
 	return &unixShellExec{
 		rawExec:         NewExecutorRaw(output, "").(*rawExec),
 		commandTemplate: commandTemplate,
