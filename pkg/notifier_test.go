@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -162,19 +163,50 @@ func (t *testNotifier) TestNotifier() {
 			zeroEvents()
 		})
 
-		t.Run("create event - watch subdir, create in subdir", func() {
-			watchedDir := path.Join(t.tempdir, "sub1")
-			t.T().Logf("%s -> %s", watchedDir, watchedFile)
+		t.Run("create file event - watch subdir, create in subdir", func() {
+			watchedDir := filepath.Dir(t.tempfiles[0])
 			t.Require().NoError(t.notifier.Add(watchedDir))
 
-			fh, err := os.OpenFile(watchedFile+".dirwatched", os.O_CREATE|os.O_WRONLY, 0660)
-			t.Require().NoError(err, "create file")
-			fh.Write([]byte("coucou"))
-			fh.Close()
+			writeEvent(path.Join(watchedDir, "newfile"))
 			event := mustPullEvent()
 
-			t.Equal(pkg.NotificationWrite, event.Notification) // didn't manage to actually get a CREATE event with fsnotify on linux.
-			t.Equal(watchedFile+".dirwatched", event.Path)
+			t.Equal(pkg.NotificationCreate, event.Notification)
+			t.Equal(path.Join(watchedDir, "newfile"), event.Path)
+			t.NoError(event.Error)
+			t.Equal(pkg.FileTypeFile, event.FileType)
+
+			event = mustPullEvent()
+
+			t.Equal(pkg.NotificationWrite, event.Notification)
+			t.Equal(path.Join(watchedDir, "newfile"), event.Path)
+			t.NoError(event.Error)
+			t.Equal(pkg.FileTypeFile, event.FileType)
+		})
+
+		t.Run("create directory event, then create file in new directory", func() {
+			newDir := path.Join(t.tempdir, "new")
+			t.Require().NoError(t.notifier.Add(t.tempdir))
+			t.Require().NoError(os.MkdirAll(newDir, 0750))
+
+			event := mustPullEvent()
+
+			t.Equal(pkg.NotificationCreate, event.Notification)
+			t.Equal(newDir, event.Path)
+			t.NoError(event.Error)
+			t.Equal(pkg.FileTypeDir, event.FileType)
+
+			writeEvent(path.Join(newDir, "newfile"))
+
+			event = mustPullEvent()
+			t.Equal(pkg.NotificationCreate, event.Notification)
+			t.Equal(event.Path, path.Join(newDir, "newfile"))
+			t.NoError(event.Error)
+			t.Equal(pkg.FileTypeFile, event.FileType)
+
+			event = mustPullEvent()
+
+			t.Equal(pkg.NotificationWrite, event.Notification)
+			t.Equal(event.Path, path.Join(newDir, "newfile"))
 			t.NoError(event.Error)
 			t.Equal(pkg.FileTypeFile, event.FileType)
 		})

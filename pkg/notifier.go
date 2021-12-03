@@ -72,11 +72,14 @@ func (f fsnotifyNotifier) handleEvent(event fsnotify.Event) NotificationEvent {
 	if err == nil {
 		if fi.IsDir() {
 			ft = FileTypeDir
+			err = f.Add(fpath)
 		}
-	} else if n&(NotificationRename|NotificationRemove) == 0 {
-		n |= NotificationError
-	} else {
+	} else if n&(NotificationRename|NotificationRemove) > 0 {
 		err = nil
+	}
+
+	if err != nil {
+		n |= NotificationError
 	}
 
 	return NotificationEvent{
