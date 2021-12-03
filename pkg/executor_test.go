@@ -26,6 +26,6 @@ func TestUnixShellExec(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 	require.True(t, exec.Running())
-	time.Sleep(time.Millisecond * 1500)
+	time.Sleep(time.Millisecond * 1000)
 	require.False(t, exec.Running())
 }
