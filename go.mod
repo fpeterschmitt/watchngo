@@ -7,5 +7,5 @@ require (
 	github.com/go-ini/ini v1.66.2
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
